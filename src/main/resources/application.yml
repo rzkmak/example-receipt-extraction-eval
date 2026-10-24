@@ -88,14 +88,28 @@ management:
     metrics:
       export:
         enabled: true
+  otlp:
+    # spring-boot-starter-opentelemetry brings micrometer-registry-otlp, which
+    # would ALSO push metrics over OTLP. Layer 4's design keeps the channels
+    # separate: metrics -> Prometheus scrape, traces -> OTLP/Phoenix.
+    metrics:
+      export:
+        enabled: false
+  opentelemetry:
+    tracing:
+      export:
+        # Boot 4 moved the OTLP tracing-export properties here (they used to be
+        # management.otlp.tracing.* — the old names are silently ignored), and
+        # ships only the OTLP/HTTP sender (gRPC :4317 would additionally
+        # require opentelemetry-exporter-sender-grpc-managed-channel).
+        # This Phoenix image serves OTLP/HTTP on the UI port, :6006/v1/traces —
+        # the compose-exposed :4318 has no listener (see docker-compose.yml).
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:6006/v1/traces}
+          transport: http
   tracing:
     sampling:
       probability: 1.0
-  otlp:
-    tracing:
-      # OTLP gRPC to the Phoenix collector (docker compose exposes 4317).
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
-      transport: grpc
 
 logging:
   level:

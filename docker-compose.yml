@@ -10,8 +10,9 @@ services:
     image: arizephoenix/phoenix:latest
     ports:
       - "6006:6006"   # Phoenix web UI
-      - "4317:4317"   # OTLP gRPC collector (what the app exports to)
-      - "4318:4318"   # OTLP HTTP collector
+      - "4317:4317"   # OTLP gRPC collector (app exports via HTTP :4318 since Boot 4)
+      - "4318:4318"   # OTLP HTTP collector (not served by this Phoenix image —
+                      # it serves OTLP/HTTP on :6006/v1/traces instead)
 
   postgres:
     image: postgres:16-alpine

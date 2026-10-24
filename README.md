@@ -50,7 +50,7 @@ flowchart LR
 
     subgraph infra["Sandbox infrastructure (docker compose)"]
         direction LR
-        phoenix["Phoenix<br/>trace UI :6006 · OTLP :4317"]
+        phoenix["Phoenix<br/>trace UI :6006 · OTLP/HTTP :6006/v1/traces"]
         dokimos["Dokimos server :8080<br/>eval runs · high-risk audits"]
     end
 
@@ -170,7 +170,7 @@ All of it is configured under `receipt.observability.*` in `application.yml` (se
 | `RECEIPT_TAX_HINT` | `true` | `false` = Experiment A |
 | `DOKIMOS_SERVER_URL` | unset | report runs to the UI |
 | `RECEIPT_PASS_RATE_THRESHOLD` | `0.6` | experiment CI gate |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | Phoenix OTLP gRPC |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:6006/v1/traces` | Phoenix OTLP/HTTP (this Phoenix image serves OTLP/HTTP on the UI port; Boot 4 ships the HTTP sender) |
 | `PHOENIX_URL` | `http://localhost:6006` | Phoenix HTTP API (span annotations) |
 | `PHOENIX_ANNOTATIONS_ENABLED` | `true` | eval verdicts → Phoenix `/v1/span_annotations` |
 | `DOKIMOS_AUDIT_ENABLED` | `false` | forward HIGH_RISK live extractions for async judge audit |
