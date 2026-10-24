@@ -15,10 +15,11 @@ import java.util.concurrent.atomic.AtomicLong;
  * Layer 2 — token cost & prompt-caching economics.
  *
  * <p>Raw {@code input_tokens}/{@code output_tokens} hide the financial
- * footprint: judge tokens ({@code gpt-4o}) cost ~15x extractor tokens
- * ({@code glm-5.3-flash}), and the static system prompt + JSON schema should
- * produce provider cache hits on the repeated prefix. This recorder turns one
- * Spring AI {@link Usage} into:
+ * footprint: every extraction also pays for judge calls, so judge spend can
+ * rival extractor spend even when both run the same model — the {@code role}
+ * tag keeps them separable — and the static system prompt + JSON schema
+ * should produce provider cache hits on the repeated prefix. This recorder
+ * turns one Spring AI {@link Usage} into:
  *
  * <ul>
  *   <li>span attributes: {@code gen_ai.usage.input_tokens},

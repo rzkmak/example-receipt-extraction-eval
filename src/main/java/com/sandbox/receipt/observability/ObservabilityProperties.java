@@ -49,9 +49,9 @@ public class ObservabilityProperties {
     private final Audit audit = new Audit();
 
     /**
-     * Layer 2: USD price per million tokens per model. The extractor's model
-     * and the judge's model are priced independently, which is the whole point
-     * (judge tokens cost ~15x extractor tokens).
+     * Layer 2: USD price per million tokens per model. Costs carry a role tag
+     * (extractor/judge), so spend stays separable even when both default to
+     * the same model.
      */
     private Map<String, ModelPrice> pricing = defaultPricing();
 

@@ -45,7 +45,7 @@ flowchart LR
     subgraph providers["OpenAI-compatible model API (OPENAI_BASE_URL)"]
         direction LR
         ext["extractor — EXTRACTOR_MODEL<br/>default glm-5.3-flash"]
-        judge["judge — JUDGE_MODEL<br/>default gpt-4o<br/>(wrapped in CostTrackingChatModel)"]
+        judge["judge — JUDGE_MODEL<br/>default glm-5.3-flash<br/>(wrapped in CostTrackingChatModel)"]
     end
 
     subgraph infra["Sandbox infrastructure (docker compose)"]
@@ -137,7 +137,7 @@ receipt.pipeline                          lineage, testcase_id, prompt.template.
 | 6 | Lineage | `ExperimentLineageSpanProcessor` (auto-registered as a `SpanProcessor` bean) | `dokimos.experiment.name/run_id`, `prompt.template.id/version` on every span; `prompt.template.sha256` (first 12 hex of SHA-256 of the effective system prompt) detects uncommitted prompt edits |
 | 7 | Online drift & invariants | `ReceiptInvariants`, live mode only for HIGH_RISK | `invariant.line_items_sum_matches_subtotal`, `invariant.tax_bounds_valid` ([0%, 10.5%] of subtotal), `invariant.date_not_future`, drift `input.char_length`, `input.cjk_char_ratio`; failing live extractions get `sampling.priority=HIGH_RISK` and are forwarded for async judge auditing when `DOKIMOS_AUDIT_ENABLED=true` |
 
-All of it is configured under `receipt.observability.*` in `application.yml` (see the model pricing table there — judge `gpt-4o` tokens cost ~15x extractor `glm-5.3-flash` tokens, which is exactly why the cost metric carries a `role` tag). The offline test `ObservabilityPipelineTest` verifies layers 2, 3, 5, 6 and 7 against an in-memory span exporter — no API key, no Phoenix required.
+All of it is configured under `receipt.observability.*` in `application.yml` (see the model pricing table there; the cost metric carries a `role` tag so extractor and judge spend stay separable even when both default to the same model). The offline test `ObservabilityPipelineTest` verifies layers 2, 3, 5, 6 and 7 against an in-memory span exporter — no API key, no Phoenix required.
 
 ### Image input (vision path)
 
@@ -153,7 +153,7 @@ All of it is configured under `receipt.observability.*` in `application.yml` (se
 | Experiment | How |
 |---|---|
 | **A — prompt regression** | `RECEIPT_TAX_HINT=false ./gradlew test --tests "com.sandbox.receipt.ReceiptEvaluationTest"` — the `※ = 8%` hint disappears from the system prompt; the suite should fail on tax-flag-heavy cases. |
-| **B — model swap** | `EXTRACTOR_MODEL=<smaller-model>` (for a local Ollama: also set `OPENAI_BASE_URL=http://localhost:11434`), keep `JUDGE_MODEL=gpt-4o`. Compare pass rate, latency and token usage across Dokimos runs. |
+| **B — model swap** | `EXTRACTOR_MODEL=<smaller-model>` (for a local Ollama: also set `OPENAI_BASE_URL=http://localhost:11434`), keep `JUDGE_MODEL=glm-5.3-flash`. Compare pass rate, latency and token usage across Dokimos runs. |
 | **C — judge bias check** | Feed a verbose-but-literal translation vs a concise-but-accurate one through `TranslationFidelityJudge` (its rubric weights semantics, not length). |
 
 `ReceiptExperimentTest` accepts `RECEIPT_PASS_RATE_THRESHOLD` (default 0.6) as the CI gate and reports to the Dokimos server when `DOKIMOS_SERVER_URL` is set.
@@ -166,7 +166,7 @@ All of it is configured under `receipt.observability.*` in `application.yml` (se
 | `OPENAI_BASE_URL` | `https://api.openai.com` | extractor endpoint; any OpenAI-compatible host (Ollama, llama.cpp, vLLM) |
 | `JUDGE_BASE_URL` | falls back to `OPENAI_BASE_URL` | judge endpoint override |
 | `EXTRACTOR_MODEL` | `glm-5.3-flash` | extractor model |
-| `JUDGE_MODEL` | `gpt-4o` | judge model |
+| `JUDGE_MODEL` | `glm-5.3-flash` | judge model |
 | `RECEIPT_TAX_HINT` | `true` | `false` = Experiment A |
 | `DOKIMOS_SERVER_URL` | unset | report runs to the UI |
 | `RECEIPT_PASS_RATE_THRESHOLD` | `0.6` | experiment CI gate |

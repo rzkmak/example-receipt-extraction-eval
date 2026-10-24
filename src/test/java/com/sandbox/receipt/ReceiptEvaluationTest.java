@@ -34,7 +34,7 @@ import java.util.stream.Stream;
  * JUnit build.
  *
  * <p>Requires {@code OPENAI_API_KEY}. Judge model is {@code JUDGE_MODEL}
- * (default gpt-4o); extractor model comes from {@code EXTRACTOR_MODEL}
+ * (default glm-5.3-flash); extractor model comes from {@code EXTRACTOR_MODEL}
  * (default glm-5.3-flash), which is the lever for Milestone 3 Experiment B.
  */
 @SpringBootTest
@@ -60,7 +60,7 @@ class ReceiptEvaluationTest {
 
     JudgeLM judge() {
         String apiKey = System.getenv("OPENAI_API_KEY");
-        String model = System.getenv().getOrDefault("JUDGE_MODEL", "gpt-4o");
+        String model = System.getenv().getOrDefault("JUDGE_MODEL", "glm-5.3-flash");
         // Judge can use its own OpenAI-compatible endpoint; falls back to the
         // extractor's OPENAI_BASE_URL, then to the OpenAI default.
         String baseUrl = firstNonBlank(System.getenv("JUDGE_BASE_URL"), System.getenv("OPENAI_BASE_URL"));

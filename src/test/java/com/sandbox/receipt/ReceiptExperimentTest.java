@@ -121,7 +121,7 @@ class ReceiptExperimentTest {
 
     private JudgeLM judge() {
         String apiKey = System.getenv("OPENAI_API_KEY");
-        String model = System.getenv().getOrDefault("JUDGE_MODEL", "gpt-4o");
+        String model = System.getenv().getOrDefault("JUDGE_MODEL", "glm-5.3-flash");
         String baseUrl = System.getenv("JUDGE_BASE_URL") != null
                 ? System.getenv("JUDGE_BASE_URL")
                 : System.getenv("OPENAI_BASE_URL");

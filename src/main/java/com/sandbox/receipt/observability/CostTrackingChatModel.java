@@ -9,8 +9,8 @@ import org.springframework.ai.chat.prompt.Prompt;
  * cost with {@code role="judge"} through {@link LLMCostRecorder}.
  *
  * <p>The evaluation harness wraps the judge model in this before handing it
- * to Dokimos, so judge spend (the expensive {@code gpt-4o} calls) shows up in
- * the same {@code llm.cost.usd.total{role,model}} metric as the extractor's,
+ * to Dokimos, so judge spend shows up in the same
+ * {@code llm.cost.usd.total{role,model}} metric as the extractor's,
  * separable by the {@code role} tag.
  */
 public final class CostTrackingChatModel implements ChatModel {
