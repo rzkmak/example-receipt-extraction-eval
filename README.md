@@ -10,6 +10,63 @@ Self-contained, zero-database sandbox for mastering **LLM-as-a-Judge** (via [Dok
 - **Results history**: runs report to the Dokimos server UI at `http://localhost:8080` when `DOKIMOS_SERVER_URL` is set.
 - **V2 observability** (closed loop): eval scores are attached back to the traces that produced them, USD cost + prompt-cache economics are tracked per role, PII never reaches telemetry, and live traffic is checked with reference-free math invariants — see [LLM observability V2](#llm-observability-v2-7-layers).
 
+## Architecture
+
+One extraction flows left → right through the numbered layers; dashed edges are telemetry exports. The spans that make up a single trace are listed in [LLM observability V2](#llm-observability-v2-7-layers) below.
+
+```mermaid
+flowchart LR
+    subgraph clients["Clients"]
+        direction LR
+        bruno["curl / Bruno collection<br/>(live traffic)"]
+        harness["JUnit eval harness<br/>ReceiptEvaluationTest · ReceiptExperimentTest<br/>(15-case golden dataset)"]
+    end
+
+    subgraph extractor["Extractor — Spring Boot :8081"]
+        direction TB
+        controller["ReceiptController<br/>/extract (text) · /extract-image (vision)"]
+        service["ReceiptExtractorService<br/>opens the receipt.pipeline root span"]
+        guardrail["PiiGuardrail / PiiScrubber<br/>layer 5 — PII gone before any prompt"]
+        prompt["ExtractionPromptFactory<br/>bilingual system prompt"]
+        chat["ExtractionChatClient + Spring AI<br/>model call + cost telemetry (layer 2)"]
+        schema["SchemaValidatedExtractor<br/>layer 3 — JSON check + self-correction retry"]
+        invariants["ReceiptInvariants<br/>layer 7 — invariants + input drift"]
+        audit["HighRiskAuditForwarder"]
+
+        controller --> service
+        service --> guardrail
+        guardrail --> schema
+        prompt --> chat
+        schema -- "one call per attempt" --> chat
+        schema --> invariants
+        invariants --> audit
+    end
+
+    subgraph providers["OpenAI-compatible model API (OPENAI_BASE_URL)"]
+        direction LR
+        ext["extractor — EXTRACTOR_MODEL<br/>default glm-5.3-flash"]
+        judge["judge — JUDGE_MODEL<br/>default gpt-4o<br/>(wrapped in CostTrackingChatModel)"]
+    end
+
+    subgraph infra["Sandbox infrastructure (docker compose)"]
+        direction LR
+        phoenix["Phoenix<br/>trace UI :6006 · OTLP :4317"]
+        dokimos["Dokimos server :8080<br/>eval runs · high-risk audits"]
+    end
+
+    prom["Prometheus<br/>/actuator/prometheus"]
+
+    bruno --> controller
+    harness -- "in-process, stub or real model" --> service
+    chat -- "extractor calls" --> ext
+    harness -- "LLM-as-a-Judge rubric calls" --> judge
+    harness -- "dokimos.eval.* span annotations" --> phoenix
+    harness -- "run reports (DOKIMOS_SERVER_URL)" --> dokimos
+    audit -- "scrubbed payload, async" --> dokimos
+    extractor -. "OTLP spans, every layer" .-> phoenix
+    extractor -. "cost & latency metrics" .-> prom
+```
+
 ## Quick start
 
 ```bash
