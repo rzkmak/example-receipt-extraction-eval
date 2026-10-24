@@ -35,7 +35,7 @@ import java.util.stream.Stream;
  *
  * <p>Requires {@code OPENAI_API_KEY}. Judge model is {@code JUDGE_MODEL}
  * (default gpt-4o); extractor model comes from {@code EXTRACTOR_MODEL}
- * (default gpt-4o-mini), which is the lever for Milestone 3 Experiment B.
+ * (default glm-5.3-flash), which is the lever for Milestone 3 Experiment B.
  */
 @SpringBootTest
 @EnabledIfEnvironmentVariable(named = "OPENAI_API_KEY", matches = ".+")

@@ -18,9 +18,9 @@ body:multipartForm {
 docs {
   POST /api/v1/receipts/extract-image — vision path.
 
-  Sends a receipt photo as media to a vision-capable extractor model
-  (gpt-4o-mini is one) — no OCR pre-pass. PNG / JPEG / WebP, up to
-  10 MB.
+  Sends a receipt photo as media to a vision-capable extractor model —
+  no OCR pre-pass. Point EXTRACTOR_MODEL at a vision model if the
+  default isn't one (gpt-4o is). PNG / JPEG / WebP, up to 10 MB.
 
   Set receiptImagePath in the Local environment (or edit the body
   below) to a real receipt image path relative to this collection.

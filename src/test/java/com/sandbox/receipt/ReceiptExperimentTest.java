@@ -35,8 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ul>
  *   <li><b>A (prompt regression):</b> {@code RECEIPT_TAX_HINT=false} drops the
  *       ※ = 8% hint from the extractor prompt — the suite should fail.</li>
- *   <li><b>B (model swap):</b> {@code EXTRACTOR_MODEL=gpt-4o-mini} vs a smaller
- *       model (or a local Ollama endpoint via
+ *   <li><b>B (model swap):</b> {@code EXTRACTOR_MODEL=glm-5.3-flash} vs a
+ *       different model (or a local Ollama endpoint via
  *       {@code SPRING_AI_OPENAI_BASE_URL}); compare judge pass rates and token
  *       usage across runs in the Dokimos UI.</li>
  *   <li><b>C (judge bias check):</b> rubric weights are fixed in

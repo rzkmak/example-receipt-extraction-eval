@@ -74,7 +74,7 @@ public class ObservabilityConfig {
                                                             io.micrometer.core.instrument.MeterRegistry meters,
                                                             EvalSpanRegistry evalSpanRegistry,
                                                             HighRiskAuditForwarder auditForwarder,
-                                                            @Value("${spring.ai.openai.chat.options.model:gpt-4o-mini}")
+                                                            @Value("${spring.ai.openai.chat.options.model:glm-5.3-flash}")
                                                             String extractorModel) {
         return new PipelineObservation.Factory(openTelemetry, meters, evalSpanRegistry, auditForwarder, extractorModel);
     }
@@ -82,7 +82,7 @@ public class ObservabilityConfig {
     @Bean
     public ExtractionChatClient extractionChatClient(ChatClient.Builder chatClientBuilder,
                                                      LLMCostRecorder costRecorder,
-                                                     @Value("${spring.ai.openai.chat.options.model:gpt-4o-mini}")
+                                                     @Value("${spring.ai.openai.chat.options.model:glm-5.3-flash}")
                                                      String extractorModel) {
         return new ExtractionChatClient(chatClientBuilder, costRecorder, extractorModel);
     }

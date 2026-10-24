@@ -52,14 +52,14 @@ final class TestObservability {
     final EvalSpanRegistry registry = new EvalSpanRegistry();
     final HighRiskAuditForwarder auditForwarder = HighRiskAuditForwarder.disabled();
     final PipelineObservation.Factory observations =
-            new PipelineObservation.Factory(otel, meters, registry, auditForwarder, "gpt-4o-mini");
+            new PipelineObservation.Factory(otel, meters, registry, auditForwarder, "glm-5.3-flash");
 
     ReceiptExtractorService serviceOver(ChatModel model, String extractorModel) {
         return service(model, extractorModel, true);
     }
 
     ReceiptExtractorService serviceOver(ChatModel model, boolean taxHint) {
-        return service(model, "gpt-4o-mini", taxHint);
+        return service(model, "glm-5.3-flash", taxHint);
     }
 
     private ReceiptExtractorService service(ChatModel model, String extractorModel, boolean taxHint) {

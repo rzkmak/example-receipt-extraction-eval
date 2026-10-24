@@ -4,7 +4,7 @@
 
 Self-contained, zero-database sandbox for mastering **LLM-as-a-Judge** (via [Dokimos](https://dokimos.dev/)) and **LLM observability** (OpenTelemetry GenAI conventions + [Arize Phoenix](https://phoenix.arize.com/)) on a bilingual (JP/EN) receipt-extraction task.
 
-- **Extractor**: Spring Boot 3.4 + Spring AI (`gpt-4o-mini` by default) turns messy Japanese receipt text into normalized JSON: merchant, ISO date, English line-item translations, expense category, and the 8%/10% consumption-tax split.
+- **Extractor**: Spring Boot 3.4 + Spring AI (`glm-5.3-flash` by default) turns messy Japanese receipt text into normalized JSON: merchant, ISO date, English line-item translations, expense category, and the 8%/10% consumption-tax split.
 - **Judge**: Dokimos `LLMJudgeEvaluator`s score translation fidelity and category classification; deterministic evaluators gate the tax math.
 - **Observability**: every extraction and judge call emits OTLP spans to Phoenix — open `http://localhost:6006` to inspect prompts, completions, token usage, and the custom `receipt.*` attributes.
 - **Results history**: runs report to the Dokimos server UI at `http://localhost:8080` when `DOKIMOS_SERVER_URL` is set.
@@ -93,7 +93,8 @@ curl -s localhost:8081/api/v1/receipts/extract \
   -d '{"rawInput":"セブン-イレブン 目黒駅東口店\n※手巻おにぎり 熟成紅しゃけ ¥189\nレジ袋 ¥3\n合計 ¥352","testcaseId":"manual-1"}'
 
 # 7. Vision path: extract directly from a receipt photo (no OCR pre-pass).
-#    Requires a vision-capable extractor model (gpt-4o-mini is one).
+#    Requires a vision-capable extractor model — point EXTRACTOR_MODEL at one
+#    if the default isn't (gpt-4o is).
 curl -s localhost:8081/api/v1/receipts/extract-image \
   -F "file=@receipt.jpg;type=image/jpeg" \
   -F "testcaseId=manual-img-1"
@@ -136,7 +137,7 @@ receipt.pipeline                          lineage, testcase_id, prompt.template.
 | 6 | Lineage | `ExperimentLineageSpanProcessor` (auto-registered as a `SpanProcessor` bean) | `dokimos.experiment.name/run_id`, `prompt.template.id/version` on every span; `prompt.template.sha256` (first 12 hex of SHA-256 of the effective system prompt) detects uncommitted prompt edits |
 | 7 | Online drift & invariants | `ReceiptInvariants`, live mode only for HIGH_RISK | `invariant.line_items_sum_matches_subtotal`, `invariant.tax_bounds_valid` ([0%, 10.5%] of subtotal), `invariant.date_not_future`, drift `input.char_length`, `input.cjk_char_ratio`; failing live extractions get `sampling.priority=HIGH_RISK` and are forwarded for async judge auditing when `DOKIMOS_AUDIT_ENABLED=true` |
 
-All of it is configured under `receipt.observability.*` in `application.yml` (see the model pricing table there — judge `gpt-4o` tokens cost ~15x extractor `gpt-4o-mini` tokens, which is exactly why the cost metric carries a `role` tag). The offline test `ObservabilityPipelineTest` verifies layers 2, 3, 5, 6 and 7 against an in-memory span exporter — no API key, no Phoenix required.
+All of it is configured under `receipt.observability.*` in `application.yml` (see the model pricing table there — judge `gpt-4o` tokens cost ~15x extractor `glm-5.3-flash` tokens, which is exactly why the cost metric carries a `role` tag). The offline test `ObservabilityPipelineTest` verifies layers 2, 3, 5, 6 and 7 against an in-memory span exporter — no API key, no Phoenix required.
 
 ### Image input (vision path)
 
@@ -164,7 +165,7 @@ All of it is configured under `receipt.observability.*` in `application.yml` (se
 | `OPENAI_API_KEY` | — (required for LLM tests) | extractor + judge |
 | `OPENAI_BASE_URL` | `https://api.openai.com` | extractor endpoint; any OpenAI-compatible host (Ollama, llama.cpp, vLLM) |
 | `JUDGE_BASE_URL` | falls back to `OPENAI_BASE_URL` | judge endpoint override |
-| `EXTRACTOR_MODEL` | `gpt-4o-mini` | extractor model |
+| `EXTRACTOR_MODEL` | `glm-5.3-flash` | extractor model |
 | `JUDGE_MODEL` | `gpt-4o` | judge model |
 | `RECEIPT_TAX_HINT` | `true` | `false` = Experiment A |
 | `DOKIMOS_SERVER_URL` | unset | report runs to the UI |

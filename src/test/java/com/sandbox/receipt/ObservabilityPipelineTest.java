@@ -75,7 +75,7 @@ class ObservabilityPipelineTest {
 
     /** Runs one extraction through the fixture, closing the span on return. */
     private static ReceiptData runExtraction(TestObservability obs, ScriptedChatModel stub) {
-        try (var result = obs.serviceOver(stub, "gpt-4o-mini")
+        try (var result = obs.serviceOver(stub, "glm-5.3-flash")
                 .extractWithMetadata(PII_INPUT, "rcpt-001", "unit", false)) {
             return result.data();
         }
@@ -243,16 +243,16 @@ class ObservabilityPipelineTest {
         assertEquals(210L, pipeline.getAttributes().get(cacheKey));
         assertEquals("extractor", pipeline.getAttributes().get(roleKey));
 
-        // gpt-4o-mini: (340-210)/1e6 * $0.15 + 210/1e6 * $0.075 + 80/1e6 * $0.60
+        // glm-5.3-flash: (340-210)/1e6 * $0.15 + 210/1e6 * $0.075 + 80/1e6 * $0.60
         double expected = (340 - 210) / 1e6 * 0.15 + 210 / 1e6 * 0.075 + 80 / 1e6 * 0.60;
         assertEquals(expected, pipeline.getAttributes().get(costKey), 1e-12);
 
         var counter = obs.meters.get("llm.cost.usd.total")
-                .tag("role", "extractor").tag("model", "gpt-4o-mini").counter();
+                .tag("role", "extractor").tag("model", "glm-5.3-flash").counter();
         assertEquals(expected, counter.count(), 1e-12);
 
         var gauge = obs.meters.get("llm.prompt.cache.hit.ratio")
-                .tag("model", "gpt-4o-mini").gauge();
+                .tag("model", "glm-5.3-flash").gauge();
         assertEquals(210.0 / 340.0, gauge.value(), 1e-9);
     }
 
@@ -266,7 +266,7 @@ class ObservabilityPipelineTest {
                 .replace("\"tax8PercentAmount\": 25", "\"tax8PercentAmount\": 200");
         ScriptedChatModel stub = new ScriptedChatModel(badMathJson);
 
-        try (var result = obs.serviceOver(stub, "gpt-4o-mini")
+        try (var result = obs.serviceOver(stub, "glm-5.3-flash")
                 .extractWithMetadata(PII_INPUT, "rcpt-001", "live", true)) {
             assertNotNull(result.data());
         }
@@ -295,7 +295,7 @@ class ObservabilityPipelineTest {
     @Test
     void noHighRiskTagWhenInvariantsPass() {
         ScriptedChatModel stub = new ScriptedChatModel(GOOD_JSON);
-        try (var result = obs.serviceOver(stub, "gpt-4o-mini")
+        try (var result = obs.serviceOver(stub, "glm-5.3-flash")
                 .extractWithMetadata(PII_INPUT, "rcpt-001", "live", true)) {
             assertNotNull(result.data());
         }
@@ -362,7 +362,7 @@ class ObservabilityPipelineTest {
     @Test
     void registryMapsTestcaseToTraceCoordinates() {
         ScriptedChatModel stub = new ScriptedChatModel(GOOD_JSON);
-        try (var result = obs.serviceOver(stub, "gpt-4o-mini")
+        try (var result = obs.serviceOver(stub, "glm-5.3-flash")
                 .extractWithMetadata(PII_INPUT, "rcpt-777", "unit", false)) {
             var entry = obs.registry.get("rcpt-777");
             assertNotNull(entry);

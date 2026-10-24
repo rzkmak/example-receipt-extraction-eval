@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>Raw {@code input_tokens}/{@code output_tokens} hide the financial
  * footprint: judge tokens ({@code gpt-4o}) cost ~15x extractor tokens
- * ({@code gpt-4o-mini}), and the static system prompt + JSON schema should
+ * ({@code glm-5.3-flash}), and the static system prompt + JSON schema should
  * produce provider cache hits on the repeated prefix. This recorder turns one
  * Spring AI {@link Usage} into:
  *
@@ -58,7 +58,7 @@ public final class LLMCostRecorder {
      * models, providers without usage data) and with a no-op span.
      *
      * @param role  {@code "extractor"} or {@code "judge"}
-     * @param model model id, e.g. {@code gpt-4o-mini}
+     * @param model model id, e.g. {@code glm-5.3-flash}
      * @param usage token usage from the chat response, may be null
      * @param span  span to attach {@code gen_ai.usage.*} attributes to
      * @return the computed USD cost (0.0 when no usage or no price entry)

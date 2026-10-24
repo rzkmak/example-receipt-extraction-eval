@@ -55,9 +55,12 @@ receipt:
       url: ${DOKIMOS_SERVER_URL:http://localhost:8080}
       endpoint: /api/v1/high-risk-extractions
     # Layer 2: USD per million tokens (input, cached-input, output) per model.
-    # Judge tokens (gpt-4o) cost ~15x extractor tokens (gpt-4o-mini).
+    # Judge tokens (gpt-4o) cost ~15x extractor tokens (glm-5.3-flash).
+    # NOTE: the glm-5.3-flash numbers are placeholders — verify them against
+    # your provider's price sheet. Models without an entry here record $0
+    # cost by design (the recorder refuses to guess).
     pricing:
-      gpt-4o-mini:
+      glm-5.3-flash:
         input-usd-per-million-tokens: 0.15
         cached-input-usd-per-million-tokens: 0.075
         output-usd-per-million-tokens: 0.60

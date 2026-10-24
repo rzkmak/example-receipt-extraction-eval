@@ -193,7 +193,7 @@ public class ObservabilityProperties {
 
     private static Map<String, ModelPrice> defaultPricing() {
         Map<String, ModelPrice> prices = new LinkedHashMap<>();
-        prices.put("gpt-4o-mini", new ModelPrice(0.15, 0.075, 0.60));
+        prices.put("glm-5.3-flash", new ModelPrice(0.15, 0.075, 0.60));
         prices.put("gpt-4o", new ModelPrice(2.50, 1.25, 10.00));
         prices.put("gpt-4.1-mini", new ModelPrice(0.40, 0.10, 1.60));
         prices.put("gpt-4.1", new ModelPrice(2.00, 0.50, 8.00));

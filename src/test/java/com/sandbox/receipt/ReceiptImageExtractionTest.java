@@ -107,7 +107,7 @@ class ReceiptImageExtractionTest {
     void imageReachesTheModelAndPipelineExtracts() {
         CapturingChatModel stub = new CapturingChatModel(GOOD_JSON);
 
-        try (var result = obs.serviceOver(stub, "gpt-4o-mini")
+        try (var result = obs.serviceOver(stub, "glm-5.3-flash")
                 .extractImageWithMetadata(FAKE_PNG, "image/png", "rcpt-img-001", "unit", false)) {
             assertEquals(352, result.data().totalAmount());
         }
@@ -150,7 +150,7 @@ class ReceiptImageExtractionTest {
     void transcribedPiiIsScrubbedBeforeLandingInSpanAttributes() {
         CapturingChatModel stub = new CapturingChatModel(MALFORMED_JSON_WITH_PII);
 
-        assertThrows(RuntimeException.class, () -> obs.serviceOver(stub, "gpt-4o-mini")
+        assertThrows(RuntimeException.class, () -> obs.serviceOver(stub, "glm-5.3-flash")
                 .extractImageWithMetadata(FAKE_PNG, "image/png", "rcpt-img-002", "unit", false));
 
         String payload = spanByName("receipt.schema_validation").getAttributes()
@@ -168,7 +168,7 @@ class ReceiptImageExtractionTest {
         String badTax = GOOD_JSON.replace("\"tax8PercentAmount\": 25", "\"tax8PercentAmount\": 200");
         CapturingChatModel stub = new CapturingChatModel(badTax);
 
-        try (var result = obs.serviceOver(stub, "gpt-4o-mini")
+        try (var result = obs.serviceOver(stub, "glm-5.3-flash")
                 .extractImageWithMetadata(FAKE_PNG, "image/jpeg", "rcpt-img-003", "unit", true)) {
             assertEquals(352, result.data().totalAmount());
         }
