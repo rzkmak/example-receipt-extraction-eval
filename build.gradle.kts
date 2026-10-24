@@ -66,6 +66,42 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+// ── Jackson 3 guard ─────────────────────────────────────────────────────────
+// Jackson 2 (com.fasterxml.jackson) sits on the compile classpath transitively
+// — the official OpenAI Java SDK inside Spring AI 2.0 uses it internally — so
+// a stray Jackson 2 reference in first-party code would compile and silently
+// run Jackson 2. Both spellings are guarded: any occurrence (import or
+// fully-qualified) in src/main, and import statements in src/test, where
+// ContextSmokeTest names the Jackson 2 class on purpose to assert it is NOT
+// auto-configured. The com.fasterxml.jackson.annotation package is exempt:
+// Jackson 3 deliberately keeps using the shared 2.x annotations artifact.
+val jackson2Reference = Regex("""com\.fasterxml\.jackson\.(?!annotation)""")
+val jackson2Import = Regex("""import\s+(static\s+)?com\.fasterxml\.jackson\.(?!annotation)""")
+
+val verifyJackson3 = tasks.register("verifyJackson3") {
+    group = "verification"
+    description = "Fails if first-party code references legacy Jackson 2 instead of Jackson 3 (tools.jackson)."
+    doLast {
+        val offenders =
+            fileTree("src/main/java") { include("**/*.java") }
+                .filter { it.readText().contains(jackson2Reference) }
+                .map { it.absolutePath } +
+                fileTree("src/test/java") { include("**/*.java") }
+                    .filter { it.readText().contains(jackson2Import) }
+                    .map { it.absolutePath }
+        if (offenders.isNotEmpty()) {
+            throw GradleException(
+                "Legacy Jackson 2 references in first-party code — use tools.jackson " +
+                    "(com.fasterxml.jackson.annotation is the one allowed package):\n  " +
+                    offenders.joinToString("\n  "))
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyJackson3)
+}
+
 // ── Sandbox infrastructure (docker compose) ────────────────────────────────
 // ./gradlew composeUp   -> Phoenix (6006/4317) + Dokimos server (8080) + Postgres
 // ./gradlew composeDown -> stop and remove the stack

@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -63,5 +64,18 @@ class ContextSmokeTest {
         assertNotNull(context.getBean("experimentLineageSpanProcessor",
                         io.opentelemetry.sdk.trace.SpanProcessor.class),
                 "experiment lineage span processor registered into the SDK tracer provider");
+    }
+
+    @Test
+    void jsonStackIsJackson3() {
+        // Jackson 3 (tools.jackson) is Boot 4's JSON stack: the auto-configured
+        // mapper must be a JsonMapper. Legacy Jackson 2 (com.fasterxml.jackson)
+        // rides on the classpath inside the OpenAI SDK, so a stray auto-config
+        // of its ObjectMapper would be silent — assert there is none.
+        assertNotNull(context.getBean(tools.jackson.databind.json.JsonMapper.class),
+                "Boot 4 auto-configured Jackson 3 JsonMapper");
+        assertNull(context.getBeanProvider(com.fasterxml.jackson.databind.ObjectMapper.class)
+                        .getIfAvailable(),
+                "no auto-configured Jackson 2 ObjectMapper");
     }
 }
