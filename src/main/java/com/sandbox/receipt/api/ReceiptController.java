@@ -1,5 +1,6 @@
 package com.sandbox.receipt.api;
 
+import com.sandbox.receipt.api.dto.ExtractRequest;
 import com.sandbox.receipt.domain.ReceiptData;
 import com.sandbox.receipt.observability.ExtractionResult;
 import com.sandbox.receipt.service.ReceiptExtractorService;
@@ -18,9 +19,6 @@ public class ReceiptController {
 
     public ReceiptController(ReceiptExtractorService extractorService) {
         this.extractorService = extractorService;
-    }
-
-    public record ExtractRequest(String rawInput, String testcaseId) {
     }
 
     /**
