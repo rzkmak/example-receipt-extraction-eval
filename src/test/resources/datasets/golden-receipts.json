@@ -1,0 +1,212 @@
+[
+  {
+    "id": "rcpt-001-konbini-mixed-tax",
+    "difficulty": "MEDIUM",
+    "notes": "Tests 8% food vs 10% plastic bag split tax calculation (7-Eleven)",
+    "rawInput": "セブン-イレブン 目黒駅東口店\n2026年10月24日 08:42\n※手巻おにぎり 熟成紅しゃけ ¥189\n※サントリー 伊右衛門 600ml ¥160\nレジ袋 ¥3\n合計 ¥352\n(内消費税等 8%対象 ¥25)\n(内消費税等 10%対象 ¥0)\nお預り ¥500\nお釣り ¥148",
+    "expected": {
+      "totalAmount": 352,
+      "tax8PercentAmount": 25,
+      "tax10PercentAmount": 0,
+      "subtotalAmount": 327,
+      "allowedCategories": ["GROCERIES", "DINING"],
+      "mustContainTranslatedKeywords": ["salmon", "green tea", "bag"]
+    }
+  },
+  {
+    "id": "rcpt-002-konbini-famichiki",
+    "difficulty": "MEDIUM",
+    "notes": "FamilyMart: cooked takeout chicken at 10% vs onigiri/salad at 8% (FamilyMart)",
+    "rawInput": "ファミリーマート 新宿三丁目店\n2026年10月23日 19:05\nおにぎり 焼鮭 ¥140\n※サラダチキン 味噌 ¥220\nファミマチキン ¥180\nレジ袋 ¥3\n合計 ¥543\n(内消費税等 8%対象 ¥26)\n(内消費税等 10%対象 ¥16)",
+    "expected": {
+      "totalAmount": 543,
+      "tax8PercentAmount": 26,
+      "tax10PercentAmount": 16,
+      "subtotalAmount": 501,
+      "allowedCategories": ["GROCERIES", "DINING"],
+      "mustContainTranslatedKeywords": ["salmon", "chicken", "bag"]
+    }
+  },
+  {
+    "id": "rcpt-003-konbini-lawson-latte",
+    "difficulty": "MEDIUM",
+    "notes": "Lawson: hot drink machine latte 10% vs karaage-kun & onigiri 8% (Lawson)",
+    "rawInput": "ローソン 恵比寿南店\n2026年10月22日 12:31\n※おにぎり 手巻ツナマヨ ¥130\n※からあげクン レッド ¥210\nウチカフェ ラテ C ¥120\nレジ袋 ¥3\n合計 ¥463\n(内消費税等 8%対象 ¥26)\n(内消費税等 10%対象 ¥11)",
+    "expected": {
+      "totalAmount": 463,
+      "tax8PercentAmount": 26,
+      "tax10PercentAmount": 11,
+      "subtotalAmount": 426,
+      "allowedCategories": ["GROCERIES", "DINING"],
+      "mustContainTranslatedKeywords": ["tuna", "fried chicken", "latte", "bag"]
+    }
+  },
+  {
+    "id": "rcpt-004-supermarket-seal-discount",
+    "difficulty": "HARD",
+    "notes": "Evening markdown sticker (シール値引) must stay a negative line item (supermarket)",
+    "rawInput": "マルエツ 東陽町店\n2026年10月21日 18:44\n卵 M 6個 ¥248\n食パン 6枚切り ¥158\n牛乳 1000ml ¥258\nシール値引 -¥50\n合計 ¥614\n(内消費税等 8%対象 ¥45)\n(内消費税等 10%対象 ¥0)\nお預り ¥1,000\nお釣り ¥386",
+    "expected": {
+      "totalAmount": 614,
+      "tax8PercentAmount": 45,
+      "tax10PercentAmount": 0,
+      "subtotalAmount": 569,
+      "allowedCategories": ["GROCERIES"],
+      "mustContainTranslatedKeywords": ["eggs", "bread", "milk", "discount"]
+    }
+  },
+  {
+    "id": "rcpt-005-supermarket-bundle-discount",
+    "difficulty": "HARD",
+    "notes": "Bundle discount (セット割引) across two deli items must reconcile arithmetically (supermarket)",
+    "rawInput": "ライフ 豊洲店\n2026年10月20日 17:12\n※惣菜 唐揚げ弁当 ¥398\n※惣菜 野菜サラダ ¥350\nセット割引 -¥100\n※緑茶 2L ¥180\n合計 ¥828\n(内消費税等 8%対象 ¥61)\n(内消費税等 10%対象 ¥0)",
+    "expected": {
+      "totalAmount": 828,
+      "tax8PercentAmount": 61,
+      "tax10PercentAmount": 0,
+      "subtotalAmount": 767,
+      "allowedCategories": ["GROCERIES"],
+      "mustContainTranslatedKeywords": ["fried chicken", "salad", "set discount", "green tea"]
+    }
+  },
+  {
+    "id": "rcpt-006-supermarket-evening-bento",
+    "difficulty": "HARD",
+    "notes": "20時値引 markdown on bento plus standard-rate beer mixes both buckets (supermarket)",
+    "rawInput": "マルエツ 東陽町店\n2026年10月19日 20:02\n※お弁当 のり弁 20時値引 ¥498\nアサヒ スーパードライ 350ml ¥218\n値引シール -¥100\n合計 ¥616\n(内消費税等 8%対象 ¥30)\n(内消費税等 10%対象 ¥20)",
+    "expected": {
+      "totalAmount": 616,
+      "tax8PercentAmount": 30,
+      "tax10PercentAmount": 20,
+      "subtotalAmount": 566,
+      "allowedCategories": ["GROCERIES", "DINING"],
+      "mustContainTranslatedKeywords": ["bento", "beer", "discount"]
+    }
+  },
+  {
+    "id": "rcpt-007-yodobashi-logitech",
+    "difficulty": "MEDIUM",
+    "notes": "Abbreviated katakana brand ロジクール 静音M — translation must name Logitech quietly (Yodobashi)",
+    "rawInput": "ヨドバシカメラ マルチメディア秋葉原\n2026年10月18日 15:20\nロジクール 静音M ¥3,980\nエレコム USB-C ケーブル 1m ¥980\n単4電池 8本 ¥580\n合計 ¥5,540\n(内消費税等 8%対象 ¥0)\n(内消費税等 10%対象 ¥504)\nポイント残高 1,240pt",
+    "expected": {
+      "totalAmount": 5540,
+      "tax8PercentAmount": 0,
+      "tax10PercentAmount": 504,
+      "subtotalAmount": 5036,
+      "allowedCategories": ["ELECTRONICS"],
+      "mustContainTranslatedKeywords": ["logitech", "elecom", "usb-c", "battery"]
+    }
+  },
+  {
+    "id": "rcpt-008-biccamera-anker",
+    "difficulty": "MEDIUM",
+    "notes": "Anker power bank + SD card; point balance at footer must not become a line item (Bic Camera)",
+    "rawInput": "ビックカメラ 有楽町店\n2026年10月17日 13:55\nAnker モバイルバッテリー 10000mAh ¥4,980\nSDカード 128GB ¥2,480\n合計 ¥7,460\n(内消費税等 8%対象 ¥0)\n(内消費税等 10%対象 ¥678)\nお預り ¥10,000\nお釣り ¥2,540\nビックポイント 2,480pt",
+    "expected": {
+      "totalAmount": 7460,
+      "tax8PercentAmount": 0,
+      "tax10PercentAmount": 678,
+      "subtotalAmount": 6782,
+      "allowedCategories": ["ELECTRONICS"],
+      "mustContainTranslatedKeywords": ["anker", "power bank", "sd card"]
+    }
+  },
+  {
+    "id": "rcpt-009-yodobashi-sony-earphones",
+    "difficulty": "MEDIUM",
+    "notes": "SONY wireless earphones + Panasonic batteries; all standard rate (Yodobashi)",
+    "rawInput": "ヨドバシカメラ マルチメディア川崎\n2026年10月16日 11:08\nSONY ワイヤレスイヤホン WF-C710N ¥7,980\nパナソニック 単3電池 10本 ¥620\n合計 ¥8,600\n(内消費税等 8%対象 ¥0)\n(内消費税等 10%対象 ¥781)",
+    "expected": {
+      "totalAmount": 8600,
+      "tax8PercentAmount": 0,
+      "tax10PercentAmount": 781,
+      "subtotalAmount": 7819,
+      "allowedCategories": ["ELECTRONICS"],
+      "mustContainTranslatedKeywords": ["sony", "wireless earphone", "panasonic", "battery"]
+    }
+  },
+  {
+    "id": "rcpt-010-ocr-torn-konbini",
+    "difficulty": "HARD",
+    "notes": "Torn OCR: ¥ misread as Y, missing spaces, change must not become total (konbini)",
+    "rawInput": "セブンイレブン 大井町駅前\n2026年10月15日 07:58\n※おにぎり 焼鮭 Y140\nブレンドコーヒーR  Y120\n合計 Y260\n(内消費税等 8%対象 Y10)\n(内消費税等 10%対象 Y11)\nお預り Y1,000\nお釣り Y740",
+    "expected": {
+      "totalAmount": 260,
+      "tax8PercentAmount": 10,
+      "tax10PercentAmount": 11,
+      "subtotalAmount": 239,
+      "allowedCategories": ["GROCERIES"],
+      "mustContainTranslatedKeywords": ["onigiri", "coffee"]
+    }
+  },
+  {
+    "id": "rcpt-011-ocr-izakaya-fullwidth",
+    "difficulty": "HARD",
+    "notes": "Full-width digits and ￥ with broken spacing; dine-in food 8% vs draft beer 10% (izakaya)",
+    "rawInput": "大衆酒場 鳥豊\n２０２６年１０月１４日 ２０：１５\n生ビール　￥５００\n※醤油ラーメン ￥８５０\n※ギョーザ　￥４００\n合計　￥１,７５０\n(内消費税等 8%対象 ￥93)\n(内消費税等 10%対象 ￥45)",
+    "expected": {
+      "totalAmount": 1750,
+      "tax8PercentAmount": 93,
+      "tax10PercentAmount": 45,
+      "subtotalAmount": 1612,
+      "allowedCategories": ["DINING"],
+      "mustContainTranslatedKeywords": ["beer", "ramen", "gyoza"]
+    }
+  },
+  {
+    "id": "rcpt-012-ocr-change-prominent",
+    "difficulty": "HARD",
+    "notes": "お預り ¥5,000 / お釣り ¥4,188 printed large; 合計 buried mid-receipt (konbini)",
+    "rawInput": "ファミリーマート 芝浦一丁目\n2026年10月13日 08:11\nお預り ¥5,000\n※お弁当 照り焼きチキン ¥480\n※緑茶 500ml ¥140\n※おにぎり 熟成紅しゃけ ¥189\nレジ袋 ¥3\n合計 ¥812\n(内消費税等 8%対象 ¥60)\n(内消費税等 10%対象 ¥0)\nお釣り ¥4,188",
+    "expected": {
+      "totalAmount": 812,
+      "tax8PercentAmount": 60,
+      "tax10PercentAmount": 0,
+      "subtotalAmount": 752,
+      "allowedCategories": ["GROCERIES", "DINING"],
+      "mustContainTranslatedKeywords": ["bento", "green tea", "onigiri", "bag"]
+    }
+  },
+  {
+    "id": "rcpt-013-drugstore-mixed",
+    "difficulty": "HARD",
+    "notes": "Matsumoto Kiyoshi: OTC medicine + supplements (8%) vs cosmetics (10%) vs snacks; borderline MEDICAL vs GROCERIES",
+    "rawInput": "マツモトキヨシ 大森店\n2026年10月12日 16:40\nイブクイック頭痛RX ¥598\n※ビタミンC サプリ 60日分 ¥880\n洗顔料 フォーム 130g ¥770\n※チョコスナック ¥158\n合計 ¥2,406\n(内消費税等 8%対象 ¥121)\n(内消費税等 10%対象 ¥70)",
+    "expected": {
+      "totalAmount": 2406,
+      "tax8PercentAmount": 121,
+      "tax10PercentAmount": 70,
+      "subtotalAmount": 2215,
+      "allowedCategories": ["MEDICAL", "PERSONAL_CARE", "GROCERIES"],
+      "mustContainTranslatedKeywords": ["pain reliever", "vitamin", "face wash", "chocolate"]
+    }
+  },
+  {
+    "id": "rcpt-014-cafe-beans-plus-latte",
+    "difficulty": "HARD",
+    "notes": "Coffee beans (takeout, 8%) vs dine-in latte (10%) — GROCERIES vs DINING borderline",
+    "rawInput": "コメダ珈琲店 自由が丘店\n2026年10月11日 10:32\nコーヒー豆 ブレンド 200g ¥1,100\nカフェラテ ホット(店内) ¥550\n※チーズケーキ(テイクアウト) ¥450\n合計 ¥2,100\n(内消費税等 8%対象 ¥114)\n(内消費税等 10%対象 ¥50)",
+    "expected": {
+      "totalAmount": 2100,
+      "tax8PercentAmount": 114,
+      "tax10PercentAmount": 50,
+      "subtotalAmount": 1936,
+      "allowedCategories": ["GROCERIES", "DINING"],
+      "mustContainTranslatedKeywords": ["coffee beans", "latte", "cheesecake"]
+    }
+  },
+  {
+    "id": "rcpt-015-hands-stationery-misc",
+    "difficulty": "MEDIUM",
+    "notes": "Tokyu Hands: stationery + candy + hand cream spans HOUSEHOLD/PERSONAL_CARE/GROCERIES",
+    "rawInput": "東急ハンズ 渋谷店\n2026年10月10日 14:02\nノート A5 5冊パック ¥220\n金平糖 90g ¥540\nハンドクリーム 60g ¥660\n合計 ¥1,420\n(内消費税等 8%対象 ¥40)\n(内消費税等 10%対象 ¥80)",
+    "expected": {
+      "totalAmount": 1420,
+      "tax8PercentAmount": 40,
+      "tax10PercentAmount": 80,
+      "subtotalAmount": 1300,
+      "allowedCategories": ["HOUSEHOLD", "PERSONAL_CARE", "GROCERIES"],
+      "mustContainTranslatedKeywords": ["notebook", "konpeito", "hand cream"]
+    }
+  }
+]

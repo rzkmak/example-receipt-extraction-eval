@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: receipt-eval-sandbox
+  ai:
+    openai:
+      # Placeholder default lets the context boot without a key (offline checks,
+      # health endpoint); any real model call then fails loudly until you export
+      # OPENAI_API_KEY.
+      api-key: ${OPENAI_API_KEY:no-key-set}
+      # Point at any OpenAI-compatible endpoint (Ollama, llama.cpp, vLLM...).
+      # The client appends /v1/chat/completions, so use the bare host, e.g.
+      # OPENAI_BASE_URL=http://localhost:11434
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          # Extractor model. Swap via env for Milestone 3 Experiment B,
+          # e.g. EXTRACTOR_MODEL=qwen2.5:7b with a local Ollama/OpenAI-compatible base-url.
+          model: ${EXTRACTOR_MODEL:gpt-4o-mini}
+          temperature: 0.0
+    # Put prompt & completion content on the chat spans so Phoenix shows
+    # what the extractor actually saw and answered.
+    chat:
+      observations:
+        include-prompt: true
+        include-completion: true
+        include-error-logging: true
+
+# Milestone 3 Experiment A: set RECEIPT_EXTRACTION_TAX_HINT=false to drop the
+# "※ = 8% reduced tax" hint from the system prompt and watch the eval fail.
+receipt:
+  extraction:
+    tax-hint: ${RECEIPT_TAX_HINT:true}
+
+server:
+  # 8080 belongs to the Dokimos server UI in the sandbox compose file.
+  port: ${APP_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      # OTLP gRPC to the Phoenix collector (docker compose exposes 4317).
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+      transport: grpc
+
+logging:
+  level:
+    org.springframework.ai: INFO
