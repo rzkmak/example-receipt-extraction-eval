@@ -1,3 +1,5 @@
+import org.gradle.api.artifacts.dsl.LockMode
+
 plugins {
     java
     id("org.springframework.boot") version "4.1.2"
@@ -14,6 +16,19 @@ java {
 
 repositories {
     mavenCentral()
+}
+
+// ── Dependency locking (frozen builds) ─────────────────────────────────────
+// The single gradle.lockfile at the project root pins every resolved module
+// across all configurations — commit it. The lock state overrides even
+// explicitly declared versions, so resolution is reproducible until you
+// regenerate it: `./gradlew dependencies --write-locks` after a deliberate
+// upgrade, `--update-locks group:name` for a selective bump. STRICT mode
+// fails the build when the lock state has missing entries (e.g. a newly
+// added dependency that was never locked).
+dependencyLocking {
+    lockAllConfigurations()
+    lockMode = LockMode.STRICT
 }
 
 val springAiVersion = "2.0.2"
