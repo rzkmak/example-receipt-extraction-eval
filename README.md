@@ -153,7 +153,7 @@ All of it is configured under `receipt.observability.*` in `application.yml` (se
 | Experiment | How |
 |---|---|
 | **A — prompt regression** | `RECEIPT_TAX_HINT=false ./gradlew test --tests "com.sandbox.receipt.ReceiptEvaluationTest"` — the `※ = 8%` hint disappears from the system prompt; the suite should fail on tax-flag-heavy cases. |
-| **B — model swap** | `EXTRACTOR_MODEL=<smaller-model>` (for a local Ollama: also set `OPENAI_BASE_URL=http://localhost:11434`), keep `JUDGE_MODEL=glm-5.3-flash`. Compare pass rate, latency and token usage across Dokimos runs. |
+| **B — model swap** | `EXTRACTOR_MODEL=<smaller-model>` (for a local Ollama: also set `OPENAI_BASE_URL=http://localhost:11434/v1`), keep `JUDGE_MODEL=glm-5.3-flash`. Compare pass rate, latency and token usage across Dokimos runs. |
 | **C — judge bias check** | Feed a verbose-but-literal translation vs a concise-but-accurate one through `TranslationFidelityJudge` (its rubric weights semantics, not length). |
 
 `ReceiptExperimentTest` accepts `RECEIPT_PASS_RATE_THRESHOLD` (default 0.6) as the CI gate and reports to the Dokimos server when `DOKIMOS_SERVER_URL` is set.
@@ -163,7 +163,7 @@ All of it is configured under `receipt.observability.*` in `application.yml` (se
 | Variable | Default | Purpose |
 |---|---|---|
 | `OPENAI_API_KEY` | — (required for LLM tests) | extractor + judge |
-| `OPENAI_BASE_URL` | `https://api.openai.com` | extractor endpoint; any OpenAI-compatible host (Ollama, llama.cpp, vLLM) |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | extractor endpoint; any OpenAI-compatible host — must include the version segment (`/v1` for OpenAI/Ollama): Spring AI 2.0 appends only `/chat/completions` to it |
 | `JUDGE_BASE_URL` | falls back to `OPENAI_BASE_URL` | judge endpoint override |
 | `EXTRACTOR_MODEL` | `glm-5.3-flash` | extractor model |
 | `JUDGE_MODEL` | `glm-5.3-flash` | judge model |

@@ -8,9 +8,11 @@ spring:
       # OPENAI_API_KEY.
       api-key: ${OPENAI_API_KEY:no-key-set}
       # Point at any OpenAI-compatible endpoint (Ollama, llama.cpp, vLLM...).
-      # The client appends /v1/chat/completions, so use the bare host, e.g.
-      # OPENAI_BASE_URL=http://localhost:11434
-      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      # Spring AI 2.0 hands base-url to the official OpenAI SDK, which appends
+      # only /chat/completions relative to it — the version segment is part of
+      # the base URL now (Spring AI 1.x appended /v1/... to a bare host):
+      # OPENAI_BASE_URL=http://localhost:11434/v1
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
       chat:
         # Spring AI 2.0 flattened chat options: spring.ai.openai.chat.options.*
         # became spring.ai.openai.chat.*.
