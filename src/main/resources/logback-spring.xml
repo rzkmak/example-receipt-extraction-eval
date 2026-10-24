@@ -11,7 +11,7 @@
     <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <timeZone>UTC</timeZone>
-            <customFields>{"service":"receipt-eval-sandbox"}</customFields>
+            <customFields>{"service":"example-receipt-extraction-eval"}</customFields>
             <includeMdc>true</includeMdc>
         </encoder>
     </appender>

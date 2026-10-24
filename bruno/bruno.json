@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "name": "receipt-eval-sandbox",
+  "name": "example-receipt-extraction-eval",
   "type": "collection",
   "ignore": [
     "node_modules",

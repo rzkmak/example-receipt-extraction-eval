@@ -98,7 +98,7 @@ class ReceiptExperimentTest {
         if (serverUrl != null && !serverUrl.isBlank()) {
             builder.reporter(DokimosServerReporter.builder()
                     .serverUrl(serverUrl)
-                    .projectName("receipt-eval-sandbox")
+                    .projectName("example-receipt-extraction-eval")
                     .build());
         }
 

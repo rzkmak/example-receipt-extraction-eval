@@ -1,6 +1,6 @@
 spring:
   application:
-    name: receipt-eval-sandbox
+    name: example-receipt-extraction-eval
   ai:
     openai:
       # Placeholder default lets the context boot without a key (offline checks,

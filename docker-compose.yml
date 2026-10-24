@@ -1,4 +1,4 @@
-# Sandbox infrastructure for receipt-eval-sandbox.
+# Sandbox infrastructure for example-receipt-extraction-eval.
 #
 #   Phoenix        -> trace UI & OTLP collector   http://localhost:6006  (gRPC :4317, HTTP :4318)
 #   Dokimos Server -> eval run comparison UI      http://localhost:8080

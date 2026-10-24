@@ -1,4 +1,4 @@
-# receipt-eval-sandbox
+# example-receipt-extraction-eval
 
 > **Why this project exists:** this is a **learning sandbox**, not a production app. The goal is to learn — end to end and hands-on — how to orchestrate **observability and evaluation for LLM applications**: closed-loop tracing, LLM-as-a-Judge evaluation, cost telemetry, guardrails, and prompt-experiment lineage. The receipt extractor is deliberately tiny so that almost all of the code is about the observability/evaluation machinery, not the business logic — swap the domain and the patterns carry over to any LLM app.
 

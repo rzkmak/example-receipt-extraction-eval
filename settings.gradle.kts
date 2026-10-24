@@ -1,1 +1,1 @@
-rootProject.name = "receipt-eval-sandbox"
+rootProject.name = "example-receipt-extraction-eval"
