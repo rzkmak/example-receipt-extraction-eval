@@ -5,6 +5,7 @@ import tools.jackson.databind.exc.MismatchedInputException;
 import com.sandbox.receipt.domain.ReceiptData;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.converter.BeanOutputConverter;
@@ -54,7 +55,9 @@ public final class SchemaValidatedExtractor {
         BeanOutputConverter<ReceiptData> converter = new BeanOutputConverter<>(ReceiptData.class);
         String format = converter.getFormat();
 
-        Span schemaSpan = tracer.spanBuilder("receipt.schema_validation").startSpan();
+        Span schemaSpan = tracer.spanBuilder("receipt.schema_validation")
+                .setAttribute("openinference.span.kind", "CHAIN")
+                .startSpan();
         schemaSpan.setAttribute("schema.target_class", ReceiptData.class.getName());
         schemaSpan.setAttribute("schema.input.modality", input.isImage() ? "image" : "text");
         int maxAttempts = properties.getSchemaMaxAttempts();
@@ -79,12 +82,15 @@ public final class SchemaValidatedExtractor {
                     ReceiptData data = converter.convert(rawOutput);
                     validateRequiredFields(data);
                     schemaSpan.setAttribute("schema.validation.success", true);
+                    schemaSpan.setStatus(StatusCode.OK);
                     return new Outcome(data, lastOutputTokens);
                 } catch (RuntimeException parseError) {
                     lastErrorType = classifySchemaError(parseError);
                     if (attempt == maxAttempts) {
                         schemaSpan.setAttribute("schema.validation.success", false);
                         schemaSpan.setAttribute("schema.error.type", lastErrorType);
+                        schemaSpan.setStatus(StatusCode.ERROR,
+                                "schema validation failed: " + lastErrorType);
                         // On the image path the model may have transcribed
                         // card numbers / member ids from the photo — scrub
                         // before the payload lands in a span attribute.

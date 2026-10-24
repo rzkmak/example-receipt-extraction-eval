@@ -2,6 +2,7 @@ package com.sandbox.receipt;
 
 import com.sandbox.receipt.service.ReceiptExtractorService;
 import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,6 +129,7 @@ class ReceiptImageExtractionTest {
         // was an image extraction.
         SpanData pipeline = spanByName("receipt.pipeline");
         assertEquals("image", pipeline.getAttributes().get(AttributeKey.stringKey("receipt.input.modality")));
+        assertEquals(StatusCode.OK, pipeline.getStatus().getStatusCode(), "successful extraction sets status OK");
         assertEquals("image", spanByName("receipt.schema_validation").getAttributes()
                 .get(AttributeKey.stringKey("schema.input.modality")));
         SpanData invariants = spanByName("schema.validate_and_invariants");
@@ -159,6 +161,9 @@ class ReceiptImageExtractionTest {
         assertFalse(payload.contains("12345678"), "member id must not reach the span attribute");
         assertTrue(payload.contains("[REDACTED_CARD]"));
         assertTrue(payload.contains("[REDACTED_MEMBER_ID]"));
+        assertEquals(StatusCode.ERROR,
+                spanByName("receipt.pipeline").getStatus().getStatusCode(),
+                "failed extraction sets status ERROR");
     }
 
     @Test

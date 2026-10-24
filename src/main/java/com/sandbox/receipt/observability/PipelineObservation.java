@@ -8,6 +8,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import org.slf4j.MDC;
 
 import java.util.List;
@@ -109,6 +110,10 @@ public final class PipelineObservation implements AutoCloseable {
         recordLatencyAndThroughput(outputTokens);
         evalSpanRegistry.register(testcaseId, span);
 
+        // Explicit OK: Phoenix reads the OTel status code, and UNSET would
+        // render as "—" even though the extraction succeeded.
+        span.setStatus(StatusCode.OK);
+
         var context = span.getSpanContext();
         return new ExtractionResult(data, context.getTraceId(), context.getSpanId(), report,
                 inputValueText, outputJson, span, live);
@@ -122,6 +127,9 @@ public final class PipelineObservation implements AutoCloseable {
         span.setAttribute("receipt.parse.success", false);
         span.setAttribute("output.value",
                 "error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+        // recordException alone leaves the status UNSET — Phoenix would show
+        // "—" for a failed extraction. Set the status explicitly.
+        span.setStatus(StatusCode.ERROR, e.getClass().getSimpleName() + ": " + e.getMessage());
         span.recordException(e);
         span.end();
     }

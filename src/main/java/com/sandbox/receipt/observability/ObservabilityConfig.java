@@ -26,6 +26,14 @@ public class ObservabilityConfig {
     }
 
     @Bean
+    public OpenInferenceSpanKindFilter openInferenceSpanKindFilter() {
+        // Tags Boot's HTTP server observations (CHAIN) and Spring AI's LLM /
+        // ChatClient / tool observations, so Phoenix's kind column stops
+        // showing "unknown" on framework spans.
+        return new OpenInferenceSpanKindFilter();
+    }
+
+    @Bean
     public PiiScrubber piiScrubber(ObservabilityProperties properties) {
         return new PiiScrubber(properties.isPiiRedactionEnabled());
     }
@@ -74,7 +82,7 @@ public class ObservabilityConfig {
                                                             io.micrometer.core.instrument.MeterRegistry meters,
                                                             EvalSpanRegistry evalSpanRegistry,
                                                             HighRiskAuditForwarder auditForwarder,
-                                                            @Value("${spring.ai.openai.chat.options.model:glm-5.3-flash}")
+                                                            @Value("${spring.ai.openai.chat.model:glm-5.3-flash}")
                                                             String extractorModel) {
         return new PipelineObservation.Factory(openTelemetry, meters, evalSpanRegistry, auditForwarder, extractorModel);
     }
@@ -82,7 +90,7 @@ public class ObservabilityConfig {
     @Bean
     public ExtractionChatClient extractionChatClient(ChatClient.Builder chatClientBuilder,
                                                      LLMCostRecorder costRecorder,
-                                                     @Value("${spring.ai.openai.chat.options.model:glm-5.3-flash}")
+                                                     @Value("${spring.ai.openai.chat.model:glm-5.3-flash}")
                                                      String extractorModel) {
         return new ExtractionChatClient(chatClientBuilder, costRecorder, extractorModel);
     }

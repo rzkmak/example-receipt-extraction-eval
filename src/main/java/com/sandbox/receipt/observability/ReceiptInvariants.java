@@ -3,6 +3,7 @@ package com.sandbox.receipt.observability;
 import com.sandbox.receipt.domain.ReceiptData;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.opentelemetry.api.trace.StatusCode;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -91,8 +92,9 @@ public final class ReceiptInvariants {
     public InvariantReport evaluateAndObserve(ReceiptData data, String rawTextInput,
                                               byte[] image, String imageMediaType, boolean live) {
         InvariantReport report = evaluate(data, image == null ? rawTextInput : "");
-        io.opentelemetry.api.trace.Span span =
-                tracer.spanBuilder("schema.validate_and_invariants").startSpan();
+        io.opentelemetry.api.trace.Span span = tracer.spanBuilder("schema.validate_and_invariants")
+                .setAttribute("openinference.span.kind", "CHAIN")
+                .startSpan();
         try {
             span.setAttribute("invariant.line_items_sum_matches_subtotal", report.lineItemsSumMatchesSubtotal());
             span.setAttribute("invariant.tax_bounds_valid", report.taxBoundsValid());
@@ -107,6 +109,14 @@ public final class ReceiptInvariants {
             }
             if (live && !report.allPassed()) {
                 span.setAttribute("sampling.priority", "HIGH_RISK");
+            }
+            // A violated invariant is a telemetry-visible failure of the
+            // extraction, not just a counter — mirror it in the span status.
+            if (report.allPassed()) {
+                span.setStatus(StatusCode.OK);
+            } else {
+                span.setStatus(StatusCode.ERROR,
+                        "invariant violations: " + String.join(", ", report.violations()));
             }
         } finally {
             span.end();

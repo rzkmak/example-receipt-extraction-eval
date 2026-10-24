@@ -2,6 +2,7 @@ package com.sandbox.receipt.observability;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 
 /**
@@ -42,20 +43,30 @@ public final class PiiGuardrail {
     }
 
     public Outcome inspect(ExtractionInput input) {
-        Span span = tracer.spanBuilder("guardrail.pii_redact").startSpan();
+        Span span = tracer.spanBuilder("guardrail.pii_redact")
+                .setAttribute("openinference.span.kind", "GUARDRAIL")
+                .startSpan();
         try {
+            Outcome outcome;
             if (input.isImage()) {
                 // Pixels cannot be regex-scrubbed; see class javadoc.
                 span.setAttribute("guardrail.pii.input_scrubbed", false);
                 span.setAttribute("guardrail.pii.mode", "IMAGE_OUTPUT_REDACTION");
-                return new Outcome(input.text(), "(image input, " + input.image().length + " bytes)");
+                outcome = new Outcome(input.text(), "(image input, " + input.image().length + " bytes)");
+            } else {
+                PiiScrubber.Result pii = scrubber.scrub(input.text());
+                span.setAttribute("guardrail.pii.input_scrubbed", true);
+                span.setAttribute("guardrail.pii.detected", pii.detected());
+                span.setAttribute("guardrail.pii.redacted_count", pii.redactedCount());
+                span.setAttribute("guardrail.pii.entity_types", String.join(",", pii.entityTypes()));
+                outcome = new Outcome(pii.scrubbedText(), pii.scrubbedText());
             }
-            PiiScrubber.Result pii = scrubber.scrub(input.text());
-            span.setAttribute("guardrail.pii.input_scrubbed", true);
-            span.setAttribute("guardrail.pii.detected", pii.detected());
-            span.setAttribute("guardrail.pii.redacted_count", pii.redactedCount());
-            span.setAttribute("guardrail.pii.entity_types", String.join(",", pii.entityTypes()));
-            return new Outcome(pii.scrubbedText(), pii.scrubbedText());
+            span.setStatus(StatusCode.OK);
+            return outcome;
+        } catch (RuntimeException e) {
+            span.setStatus(StatusCode.ERROR, String.valueOf(e.getMessage()));
+            span.recordException(e);
+            throw e;
         } finally {
             span.end();
         }
