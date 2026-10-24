@@ -8,6 +8,7 @@ import com.sandbox.receipt.observability.LLMCostRecorder;
 import com.sandbox.receipt.observability.ObservabilityProperties;
 import com.sandbox.receipt.observability.PiiScrubber;
 import com.sandbox.receipt.observability.ReceiptInvariants;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.opentelemetry.api.OpenTelemetry;
@@ -32,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -445,7 +447,7 @@ public class ReceiptExtractorService {
         if (data == null) {
             throw new MissingRequiredFieldException("conversion produced no ReceiptData");
         }
-        List<String> missing = new java.util.ArrayList<>();
+        List<String> missing = new ArrayList<>();
         if (data.totalAmount() == null) {
             missing.add("totalAmount");
         }
@@ -458,6 +460,9 @@ public class ReceiptExtractorService {
     }
 
     static String classifySchemaError(Throwable error) {
+        if (error == null) {
+            return "Unknown";
+        }
         if (error instanceof MissingRequiredFieldException) {
             return "MissingRequiredField";
         }
@@ -491,7 +496,7 @@ public class ReceiptExtractorService {
 
         double seconds = durationNanos / 1_000_000_000.0;
         if (outputTokens > 0 && seconds > 0) {
-            io.micrometer.core.instrument.DistributionSummary
+            DistributionSummary
                     .builder("receipt.tokens.throughput.tps")
                     .tag("model", extractorModel)
                     .description("Model output tokens per second of pipeline time")
