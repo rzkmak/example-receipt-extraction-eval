@@ -33,7 +33,16 @@ dependencies {
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
 
+    // Layer 4 (three pillars): Prometheus scrape endpoint for the aggregate
+    // SLIs (cost counters, duration percentiles, invariant violations), and
+    // JSON-structured logs with MDC correlation.
+    implementation("io.micrometer:micrometer-registry-prometheus")
+    implementation("net.logstash.logback:logstash-logback-encoder:8.1")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // In-memory span exporter so offline tests can assert span attributes.
+    testImplementation("io.opentelemetry:opentelemetry-sdk-testing")
 
     // Dokimos: LLM-as-a-Judge evaluation framework (test scope only)
     testImplementation("dev.dokimos:dokimos-junit:$dokimosVersion")

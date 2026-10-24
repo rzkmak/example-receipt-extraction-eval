@@ -40,4 +40,27 @@ class ContextSmokeTest {
         assertTrue(health.getStatusCode().is2xxSuccessful());
         assertTrue(health.getBody().contains("UP"));
     }
+
+    @Test
+    void prometheusEndpointIsUpAndObservabilityBeansExist() {
+        // Layer 4: the scrape endpoint is where the cost counters, duration
+        // timer and invariant violations become aggregate SLIs. The meters
+        // themselves register lazily on first use, so here we assert the
+        // wiring: endpoint serving + recorder/invariants beans in the context.
+        var prometheus = restTemplate.getForEntity("/actuator/prometheus", String.class);
+        assertTrue(prometheus.getStatusCode().is2xxSuccessful());
+        assertNotNull(prometheus.getBody());
+
+        assertNotNull(context.getBean(com.sandbox.receipt.observability.LLMCostRecorder.class),
+                "LLM cost recorder bean");
+        assertNotNull(context.getBean(com.sandbox.receipt.observability.ReceiptInvariants.class),
+                "receipt invariants bean");
+        assertNotNull(context.getBean(com.sandbox.receipt.observability.PiiScrubber.class),
+                "PII scrubber bean");
+        assertNotNull(context.getBean(com.sandbox.receipt.observability.EvalSpanRegistry.class),
+                "eval span registry bean");
+        assertNotNull(context.getBean("experimentLineageSpanProcessor",
+                        io.opentelemetry.sdk.trace.SpanProcessor.class),
+                "experiment lineage span processor registered into the SDK tracer provider");
+    }
 }

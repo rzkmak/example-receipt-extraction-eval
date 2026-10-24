@@ -30,6 +30,37 @@ spring:
 receipt:
   extraction:
     tax-hint: ${RECEIPT_TAX_HINT:true}
+  observability:
+    # Layer 6: experiment & prompt lineage stamped on every span.
+    experiment-name: ${EXPERIMENT_NAME:Receipt Extractor Baseline}
+    # Blank run-id -> generated per process (run-<UTC timestamp>).
+    run-id: ${EXPERIMENT_RUN_ID:}
+    prompt-template-id: bilingual-receipt-extractor
+    prompt-template-version: ${PROMPT_TEMPLATE_VERSION:v1.3-split-tax-rules}
+    # Layer 3: 1 model call + N-1 self-correction retries on malformed JSON.
+    schema-max-attempts: ${SCHEMA_MAX_ATTEMPTS:2}
+    # Layer 5: pre-inference PII scrubbing (card / member id / phone).
+    pii-redaction-enabled: ${PII_REDACTION_ENABLED:true}
+    # Layer 1: Phoenix span annotations (eval verdicts attached to spans).
+    phoenix:
+      annotations-enabled: ${PHOENIX_ANNOTATIONS_ENABLED:true}
+      annotations-url: ${PHOENIX_URL:http://localhost:6006}
+    # Layer 7: async judge auditing of high-risk live extractions.
+    audit:
+      enabled: ${DOKIMOS_AUDIT_ENABLED:false}
+      url: ${DOKIMOS_SERVER_URL:http://localhost:8080}
+      endpoint: /api/v1/high-risk-extractions
+    # Layer 2: USD per million tokens (input, cached-input, output) per model.
+    # Judge tokens (gpt-4o) cost ~15x extractor tokens (gpt-4o-mini).
+    pricing:
+      gpt-4o-mini:
+        input-usd-per-million-tokens: 0.15
+        cached-input-usd-per-million-tokens: 0.075
+        output-usd-per-million-tokens: 0.60
+      gpt-4o:
+        input-usd-per-million-tokens: 2.50
+        cached-input-usd-per-million-tokens: 1.25
+        output-usd-per-million-tokens: 10.00
 
 server:
   # 8080 belongs to the Dokimos server UI in the sandbox compose file.
@@ -39,7 +70,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
   tracing:
     sampling:
       probability: 1.0

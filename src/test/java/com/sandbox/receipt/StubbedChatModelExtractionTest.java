@@ -3,7 +3,6 @@ package com.sandbox.receipt;
 import com.sandbox.receipt.domain.ExpenseCategory;
 import com.sandbox.receipt.domain.ReceiptData;
 import com.sandbox.receipt.service.ReceiptExtractorService;
-import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -73,7 +72,10 @@ class StubbedChatModelExtractionTest {
     }
 
     private static ReceiptExtractorService serviceOver(RecordingStubChatModel stub, boolean taxHint) {
-        return new ReceiptExtractorService(ChatClient.builder(stub), OpenTelemetry.noop(), taxHint);
+        TestObservability obs = new TestObservability();
+        return new ReceiptExtractorService(
+                ChatClient.builder(stub), obs.otel, obs.meters, obs.properties, obs.piiScrubber,
+                obs.costRecorder, obs.invariants, obs.registry, obs.auditForwarder, taxHint, "gpt-4o-mini");
     }
 
     @Test

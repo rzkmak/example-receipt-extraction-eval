@@ -4,6 +4,7 @@ import com.sandbox.receipt.GoldenReceipt.ReceiptExpectation;
 import com.sandbox.receipt.domain.ReceiptData;
 import com.sandbox.receipt.evaluators.ExactTotalAndTaxEvaluator;
 import com.sandbox.receipt.evaluators.LineItemSumConsistencyEvaluator;
+import com.sandbox.receipt.evaluators.SpanAnnotatingEvaluator;
 import com.sandbox.receipt.evaluators.TranslationRubricFactory;
 import com.sandbox.receipt.service.ReceiptExtractorService;
 import dev.dokimos.core.Assertions;
@@ -44,11 +45,20 @@ class ReceiptEvaluationTest {
     @Autowired
     ReceiptExtractorService extractorService;
 
+    @Autowired
+    com.sandbox.receipt.observability.PhoenixSpanAnnotationClient phoenix;
+
+    @Autowired
+    com.sandbox.receipt.observability.LLMCostRecorder costRecorder;
+
+    @Autowired
+    com.sandbox.receipt.observability.EvalSpanRegistry evalSpanRegistry;
+
     static Stream<GoldenReceipt> cases() {
         return GoldenReceipts.load().stream();
     }
 
-    static JudgeLM judge() {
+    JudgeLM judge() {
         String apiKey = System.getenv("OPENAI_API_KEY");
         String model = System.getenv().getOrDefault("JUDGE_MODEL", "gpt-4o");
         // Judge can use its own OpenAI-compatible endpoint; falls back to the
@@ -66,7 +76,10 @@ class ReceiptEvaluationTest {
                         .temperature(0.0)
                         .build())
                 .build();
-        return SpringAiSupport.asJudge(judgeModel);
+        // Layer 2: judge tokens land in llm.cost.usd.total{role="judge"} so
+        // evaluation overhead stays separable from extractor spend.
+        return SpringAiSupport.asJudge(
+                new com.sandbox.receipt.observability.CostTrackingChatModel(judgeModel, costRecorder, "judge", model));
     }
 
     private static String firstNonBlank(String... values) {
@@ -81,23 +94,31 @@ class ReceiptEvaluationTest {
     @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("cases")
     void extractionPassesAllFourEvaluators(GoldenReceipt rc) {
-        ReceiptData actual = extractorService.extract(rc.rawInput(), rc.id());
+        // The extraction span stays OPEN until evaluators ran, so the
+        // SpanAnnotatingEvaluator can attach dokimos.eval.* attributes
+        // in-process before the span is exported to Phoenix (layer 1).
+        try (com.sandbox.receipt.observability.ExtractionResult result =
+                     extractorService.extractWithMetadata(rc.rawInput(), rc.id(), rc.difficulty(), false)) {
+            ReceiptData actual = result.data();
 
-        ReceiptExpectation expectation = rc.expected();
-        EvalTestCase testCase = EvalTestCase.builder()
-                .input(rc.rawInput())
-                .actualOutput("output", actual)
-                .expectedOutput("output", expectation)
-                .metadata("id", rc.id())
-                .metadata("difficulty", rc.difficulty())
-                .build();
+            ReceiptExpectation expectation = rc.expected();
+            EvalTestCase testCase = EvalTestCase.builder()
+                    .input(rc.rawInput())
+                    .actualOutput("output", actual)
+                    .expectedOutput("output", expectation)
+                    .metadata("id", rc.id())
+                    .metadata("difficulty", rc.difficulty())
+                    .build();
 
-        List<Evaluator> evaluators = new ArrayList<>();
-        evaluators.add(new ExactTotalAndTaxEvaluator());
-        evaluators.add(new LineItemSumConsistencyEvaluator());
-        evaluators.add(TranslationRubricFactory.translationFidelityJudge(judge()));
-        evaluators.add(TranslationRubricFactory.categoryClassificationJudge(judge()));
+            List<Evaluator> evaluators = new ArrayList<>();
+            evaluators.add(new SpanAnnotatingEvaluator(new ExactTotalAndTaxEvaluator(), evalSpanRegistry, phoenix));
+            evaluators.add(new SpanAnnotatingEvaluator(new LineItemSumConsistencyEvaluator(), evalSpanRegistry, phoenix));
+            evaluators.add(new SpanAnnotatingEvaluator(
+                    TranslationRubricFactory.translationFidelityJudge(judge()), evalSpanRegistry, phoenix));
+            evaluators.add(new SpanAnnotatingEvaluator(
+                    TranslationRubricFactory.categoryClassificationJudge(judge()), evalSpanRegistry, phoenix));
 
-        Assertions.assertEval(testCase, evaluators);
+            Assertions.assertEval(testCase, evaluators);
+        }
     }
 }

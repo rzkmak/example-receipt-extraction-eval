@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Layer 4 (three pillars), pillar 3: JSON-structured logs.
+
+  Every log line carries trace_id / span_id (micrometer-tracing's
+  Slf4JEventListener injects them into the MDC inside any active span scope)
+  plus testcase_id (set by ReceiptExtractorService), so a deserialization
+  warning or judge failure greps straight back to its Phoenix trace.
+-->
+<configuration>
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <timeZone>UTC</timeZone>
+            <customFields>{"service":"receipt-eval-sandbox"}</customFields>
+            <includeMdc>true</includeMdc>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+</configuration>

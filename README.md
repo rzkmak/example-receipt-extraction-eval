@@ -6,6 +6,7 @@ Self-contained, zero-database sandbox for mastering **LLM-as-a-Judge** (via [Dok
 - **Judge**: Dokimos `LLMJudgeEvaluator`s score translation fidelity and category classification; deterministic evaluators gate the tax math.
 - **Observability**: every extraction and judge call emits OTLP spans to Phoenix — open `http://localhost:6006` to inspect prompts, completions, token usage, and the custom `receipt.*` attributes.
 - **Results history**: runs report to the Dokimos server UI at `http://localhost:8080` when `DOKIMOS_SERVER_URL` is set.
+- **V2 observability** (closed loop): eval scores are attached back to the traces that produced them, USD cost + prompt-cache economics are tracked per role, PII never reaches telemetry, and live traffic is checked with reference-free math invariants — see [LLM observability V2](#llm-observability-v2-7-layers).
 
 ## Quick start
 
@@ -46,6 +47,30 @@ Watch traces at `http://localhost:6006` (Phoenix) and run history at `http://loc
 
 The 15-case golden matrix (`src/test/resources/datasets/golden-receipts.json`): 3× konbini mixed tax, 3× discounts & bundles, 3× katakana electronics, 3× messy OCR (incl. `お預り`/`お釣り` confusion), 3× ambiguous categories.
 
+## LLM observability V2 (7 layers)
+
+Every extraction runs as one trace:
+
+```
+receipt.pipeline                          lineage, testcase_id, prompt.template.sha256, gen_ai.usage.*
+├── guardrail.pii_redact                  PII scrubbed BEFORE any prompt attribute exists
+├── spring_ai.chat.*                      Spring AI's own span (model call, prompt & completion)
+├── receipt.schema_validation             raw string -> ReceiptData, error type + retry telemetry
+└── schema.validate_and_invariants        reference-free invariants + input drift characteristics
+```
+
+| # | Layer | Where | Key telemetry |
+|---|---|---|---|
+| 1 | Eval feedback loop | `EvalSpanRegistry` + `SpanAnnotatingEvaluator` (test scope) | `dokimos.eval.<name>.score/passed/reason` span attrs; async `POST /v1/span_annotations` to Phoenix. The JUnit harness keeps the parent span open until evaluators finish, so in-process attribute writes land before export. |
+| 2 | Cost & prompt caching | `LLMCostRecorder` (extractor + judge via `CostTrackingChatModel`) | span attrs `gen_ai.usage.{input,output,cache_read_input}_tokens`, `gen_ai.usage.cost_usd`, `gen_ai.role`; metrics `llm.cost.usd.total{role,model}` (counter), `llm.prompt.cache.hit.ratio{model}` (gauge) |
+| 3 | Schema reliability | `receipt.schema_validation` span in `ReceiptExtractorService` | `schema.validation.success`, `schema.error.type` (`JsonParseException` / `MismatchedInputException` / `MissingRequiredField`), `schema.retry.attempt_count`, `schema.raw_malformed_payload` (failures only); self-correction retry re-prompts the model with the invalid output |
+| 4 | Three pillars | OTLP → Phoenix; Micrometer (`/actuator/prometheus`); Logstash JSON logs | `receipt.extraction.duration{model,difficulty}` timer, `receipt.tokens.throughput.tps`, `receipt.invariant.violation.total{type}`; logs carry `trace_id`, `span_id`, `testcase_id` via MDC |
+| 5 | PII guardrails | `PiiScrubber`, runs before `ChatClient` | card numbers (Luhn-validated, 12–19 digits) → `[REDACTED_CARD]`, `会員番号`/`ポイントカード` → `[REDACTED_MEMBER_ID]`, `TEL:` → `[REDACTED_PHONE]`; span attrs `guardrail.pii.detected/redacted_count/entity_types` |
+| 6 | Lineage | `ExperimentLineageSpanProcessor` (auto-registered as a `SpanProcessor` bean) | `dokimos.experiment.name/run_id`, `prompt.template.id/version` on every span; `prompt.template.sha256` (first 12 hex of SHA-256 of the effective system prompt) detects uncommitted prompt edits |
+| 7 | Online drift & invariants | `ReceiptInvariants`, live mode only for HIGH_RISK | `invariant.line_items_sum_matches_subtotal`, `invariant.tax_bounds_valid` ([0%, 10.5%] of subtotal), `invariant.date_not_future`, drift `input.char_length`, `input.cjk_char_ratio`; failing live extractions get `sampling.priority=HIGH_RISK` and are forwarded for async judge auditing when `DOKIMOS_AUDIT_ENABLED=true` |
+
+All of it is configured under `receipt.observability.*` in `application.yml` (see the model pricing table there — judge `gpt-4o` tokens cost ~15x extractor `gpt-4o-mini` tokens, which is exactly why the cost metric carries a `role` tag). The offline test `ObservabilityPipelineTest` verifies layers 2, 3, 5, 6 and 7 against an in-memory span exporter — no API key, no Phoenix required.
+
 ## Experiments (Milestone 3)
 
 | Experiment | How |
@@ -69,6 +94,12 @@ The 15-case golden matrix (`src/test/resources/datasets/golden-receipts.json`): 
 | `DOKIMOS_SERVER_URL` | unset | report runs to the UI |
 | `RECEIPT_PASS_RATE_THRESHOLD` | `0.6` | experiment CI gate |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | Phoenix OTLP gRPC |
+| `PHOENIX_URL` | `http://localhost:6006` | Phoenix HTTP API (span annotations) |
+| `PHOENIX_ANNOTATIONS_ENABLED` | `true` | eval verdicts → Phoenix `/v1/span_annotations` |
+| `DOKIMOS_AUDIT_ENABLED` | `false` | forward HIGH_RISK live extractions for async judge audit |
+| `EXPERIMENT_NAME` / `EXPERIMENT_RUN_ID` | baseline name / per-process timestamp | lineage stamped on every span |
+| `SCHEMA_MAX_ATTEMPTS` | `2` | model calls per extraction (1 + retries) |
+| `PII_REDACTION_ENABLED` | `true` | pre-inference PII scrubbing |
 | `APP_PORT` | `8081` | extractor HTTP port (8080 is Dokimos) |
 
 ## Version notes (vs. original spec)
