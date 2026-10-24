@@ -58,3 +58,20 @@ tasks.withType<JavaCompile> {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+// ── Sandbox infrastructure (docker compose) ────────────────────────────────
+// ./gradlew composeUp   -> Phoenix (6006/4317) + Dokimos server (8080) + Postgres
+// ./gradlew composeDown -> stop and remove the stack
+tasks.register<Exec>("composeUp") {
+    group = "sandbox"
+    description = "Starts the sandbox infrastructure (Phoenix, Dokimos server, Postgres) via docker compose."
+    // --wait blocks until containers are running/healthy, so a following
+    // bootRun or evaluation run can rely on the OTLP endpoint being up.
+    commandLine("docker", "compose", "up", "-d", "--wait")
+}
+
+tasks.register<Exec>("composeDown") {
+    group = "sandbox"
+    description = "Stops and removes the sandbox infrastructure containers."
+    commandLine("docker", "compose", "down")
+}
