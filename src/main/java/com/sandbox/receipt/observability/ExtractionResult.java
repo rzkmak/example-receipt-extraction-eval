@@ -25,6 +25,8 @@ public record ExtractionResult(
         String traceId,
         String spanId,
         ReceiptInvariants.InvariantReport invariants,
+        String inputValue,
+        String outputJson,
         Span span,
         boolean live) implements AutoCloseable {
 

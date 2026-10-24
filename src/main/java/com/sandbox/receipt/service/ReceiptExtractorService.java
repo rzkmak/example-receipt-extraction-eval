@@ -206,6 +206,9 @@ public class ReceiptExtractorService {
         span.setAttribute("prompt.template.sha256", sha256Prefix(prompt));
         span.setAttribute("receipt.input.live", live);
         span.setAttribute("receipt.input.modality", input.isImage() ? "image" : "text");
+        // OpenInference span kind — what Phoenix's `kind` column reads;
+        // without it the column shows "unknown".
+        span.setAttribute("openinference.span.kind", "CHAIN");
 
         // Layer 4: structured-log correlation. traceId/spanId also reach MDC
         // automatically via micrometer's Slf4JEventListener; the testcase id
@@ -237,9 +240,16 @@ public class ReceiptExtractorService {
             }
             guardrailSpan.end();
 
+            // OpenInference convention: Phoenix's Input/Output columns (and
+            // any evals on the trace) read input.value / output.value. The
+            // input here is always the PII-scrubbed text — the raw text
+            // never reaches telemetry.
+            span.setAttribute("input.value", textForAudit);
+
             // ── Layers 2+3: chat call + schema deserialization with retry ──
             CallOutcome outcome = callAndParse(span, prompt, modelInput);
             ReceiptData data = outcome.data();
+            span.setAttribute("output.value", toJson(data));
 
             // ── Layer 7: reference-free invariants + drift ──
             ReceiptInvariants.InvariantReport report = invariants.evaluate(data, input.isImage() ? "" : input.text());
@@ -280,13 +290,32 @@ public class ReceiptExtractorService {
             evalSpanRegistry.register(testcaseId, span);
 
             var context = span.getSpanContext();
-            return new ExtractionResult(data, context.getTraceId(), context.getSpanId(), report, span, live);
+            return new ExtractionResult(data, context.getTraceId(), context.getSpanId(), report,
+                    textForAudit, toJson(data), span, live);
         } catch (RuntimeException e) {
             span.setAttribute("receipt.parse.success", false);
+            span.setAttribute("output.value",
+                    "error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             span.recordException(e);
+            // Failure path: there is no ExtractionResult to close, so end
+            // the span here or it is never exported (the exception unwinds
+            // past every close()).
+            span.end();
             throw e;
         } finally {
             MDC.remove("testcase_id");
+        }
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper OUTPUT_JSON =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
+    /** The extracted data as compact JSON for the output.value attribute. */
+    private static String toJson(ReceiptData data) {
+        try {
+            return OUTPUT_JSON.writeValueAsString(data);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            return String.valueOf(data);
         }
     }
 

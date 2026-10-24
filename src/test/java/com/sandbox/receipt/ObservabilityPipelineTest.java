@@ -375,4 +375,39 @@ class ObservabilityPipelineTest {
         assertEquals(2L, pipeline.getAttributes().get(AttributeKey.longKey("receipt.extracted.item_count")));
         assertNotNull(pipeline.getAttributes().get(AttributeKey.stringKey("receipt.eval.testcase_id")));
     }
+
+    // ── Phoenix Input/Output columns (OpenInference input/output.value) ──
+
+    @Test
+    void pipelineCarriesInputValueAndOutputValueForPhoenix() {
+        ScriptedChatModel stub = new ScriptedChatModel(GOOD_JSON);
+        obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001");
+
+        SpanData pipeline = spanByName("receipt.pipeline");
+        String input = pipeline.getAttributes().get(AttributeKey.stringKey("input.value"));
+        String output = pipeline.getAttributes().get(AttributeKey.stringKey("output.value"));
+
+        // input.value is the SCRUBBED text: placeholders in, raw PII out.
+        assertNotNull(input);
+        assertTrue(input.contains(PiiScrubber.PLACEHOLDER_CARD));
+        assertFalse(input.contains("4111"), "raw card digits must not appear in input.value");
+        assertTrue(input.contains("合計"), "input.value carries the receipt text");
+
+        // output.value is the extracted JSON.
+        assertNotNull(output);
+        assertTrue(output.contains("\"totalAmount\":352"));
+        assertTrue(output.contains("7-Eleven Meguro Station East Exit"));
+    }
+
+    @Test
+    void failedExtractionRecordsErrorAsOutputValue() {
+        ScriptedChatModel stub = new ScriptedChatModel("not json #1", "not json #2");
+        assertThrows(RuntimeException.class, () ->
+                obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001"));
+
+        String output = spanByName("receipt.pipeline").getAttributes()
+                .get(AttributeKey.stringKey("output.value"));
+        assertNotNull(output);
+        assertTrue(output.startsWith("error: "), "failure path marks output.value");
+    }
 }

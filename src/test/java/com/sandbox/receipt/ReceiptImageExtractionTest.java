@@ -140,6 +140,10 @@ class ReceiptImageExtractionTest {
         assertEquals(false, guardrail.getAttributes().get(AttributeKey.booleanKey("guardrail.pii.input_scrubbed")));
         assertEquals("IMAGE_OUTPUT_REDACTION",
                 guardrail.getAttributes().get(AttributeKey.stringKey("guardrail.pii.mode")));
+
+        // input.value is the image marker, not the (nonexistent) text.
+        assertEquals("(image input, " + FAKE_PNG.length + " bytes)",
+                pipeline.getAttributes().get(AttributeKey.stringKey("input.value")));
     }
 
     @Test

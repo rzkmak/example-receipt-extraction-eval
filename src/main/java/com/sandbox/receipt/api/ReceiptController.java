@@ -50,6 +50,7 @@ public class ReceiptController {
     public ResponseEntity<ReceiptData> extract(@RequestBody ExtractRequest request) {
         try (ExtractionResult result = extractorService.extractWithMetadata(
                 request.rawInput(), request.testcaseId(), "live", true)) {
+            annotateTraceRoot(result);
             return ResponseEntity.ok()
                     .header("X-Trace-Id", result.traceId())
                     .header("X-Span-Id", result.spanId())
@@ -91,10 +92,24 @@ public class ReceiptController {
 
         try (ExtractionResult result = extractorService.extractImageWithMetadata(
                 bytes, mediaType, testcaseId, "live", true)) {
+            annotateTraceRoot(result);
             return ResponseEntity.ok()
                     .header("X-Trace-Id", result.traceId())
                     .header("X-Span-Id", result.spanId())
                     .body(result.data());
         }
+    }
+
+    /**
+     * Stamps the OpenInference attributes Phoenix's table columns read onto
+     * the request's trace root (the HTTP server span): input/output content
+     * plus the SERVER span kind. The input here is the PII-scrubbed text
+     * from the service — the raw input never reaches telemetry.
+     */
+    private static void annotateTraceRoot(ExtractionResult result) {
+        io.opentelemetry.api.trace.Span current = io.opentelemetry.api.trace.Span.current();
+        current.setAttribute("openinference.span.kind", "SERVER");
+        current.setAttribute("input.value", result.inputValue());
+        current.setAttribute("output.value", result.outputJson());
     }
 }
