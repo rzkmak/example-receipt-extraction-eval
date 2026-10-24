@@ -1,7 +1,9 @@
 package com.sandbox.receipt;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
+import tools.jackson.databind.json.JsonMapper;
 import dev.dokimos.core.Dataset;
 import dev.dokimos.core.Example;
 
@@ -23,7 +25,7 @@ import java.util.List;
  */
 public final class GoldenReceipts {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = JsonMapper.builder().build();
     private static final ObjectReader READER =
             MAPPER.readerForListOf(GoldenReceipt.class);
 
@@ -36,7 +38,7 @@ public final class GoldenReceipts {
                 throw new IllegalStateException("golden-receipts.json not found on the test classpath");
             }
             return READER.readValue(in);
-        } catch (IOException e) {
+        } catch (IOException | JacksonException e) {
             throw new IllegalStateException("Failed to parse golden-receipts.json", e);
         }
     }

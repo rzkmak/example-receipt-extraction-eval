@@ -1,7 +1,7 @@
 package com.sandbox.receipt.observability;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import com.sandbox.receipt.domain.ReceiptData;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class PipelineObservation implements AutoCloseable {
 
-    private static final ObjectMapper OUTPUT_JSON = new ObjectMapper();
+    private static final JsonMapper OUTPUT_JSON = JsonMapper.builder().build();
 
     private final Span span;
     private final MeterRegistry meters;
@@ -154,7 +154,7 @@ public final class PipelineObservation implements AutoCloseable {
     private static String toJson(ReceiptData data) {
         try {
             return OUTPUT_JSON.writeValueAsString(data);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return String.valueOf(data);
         }
     }

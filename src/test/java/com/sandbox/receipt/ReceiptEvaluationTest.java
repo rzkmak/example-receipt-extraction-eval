@@ -12,13 +12,16 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.Evaluator;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.springai.SpringAiSupport;
+import com.openai.client.OpenAIClient;
+import com.openai.client.OpenAIClientImpl;
+import com.openai.core.ClientOptions;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.ai.openai.http.okhttp.SpringAiOpenAiHttpClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
@@ -64,14 +67,19 @@ class ReceiptEvaluationTest {
         // Judge can use its own OpenAI-compatible endpoint; falls back to the
         // extractor's OPENAI_BASE_URL, then to the OpenAI default.
         String baseUrl = firstNonBlank(System.getenv("JUDGE_BASE_URL"), System.getenv("OPENAI_BASE_URL"));
-        OpenAiApi.Builder apiBuilder = OpenAiApi.builder().apiKey(apiKey);
+        // Spring AI 2.0 builds on the official OpenAI Java SDK. Wire the same
+        // stack the auto-configuration uses: ClientOptions + Spring AI's OkHttp
+        // bridge, instead of the removed OpenAiApi builder.
+        ClientOptions.Builder clientOptions = ClientOptions.builder()
+                .apiKey(apiKey)
+                .httpClient(SpringAiOpenAiHttpClient.builder().build());
         if (baseUrl != null) {
-            apiBuilder.baseUrl(baseUrl);
+            clientOptions.baseUrl(baseUrl);
         }
-        OpenAiApi api = apiBuilder.build();
+        OpenAIClient api = new OpenAIClientImpl(clientOptions.build());
         ChatModel judgeModel = OpenAiChatModel.builder()
-                .openAiApi(api)
-                .defaultOptions(OpenAiChatOptions.builder()
+                .openAiClient(api)
+                .options(OpenAiChatOptions.builder()
                         .model(model)
                         .temperature(0.0)
                         .build())

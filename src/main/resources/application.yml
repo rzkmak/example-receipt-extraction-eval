@@ -12,11 +12,12 @@ spring:
       # OPENAI_BASE_URL=http://localhost:11434
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}
       chat:
-        options:
-          # Extractor model. Swap via env for Milestone 3 Experiment B,
-          # e.g. EXTRACTOR_MODEL=qwen2.5:7b with a local Ollama/OpenAI-compatible base-url.
-          model: ${EXTRACTOR_MODEL:glm-5.3-flash}
-          temperature: 0.0
+        # Spring AI 2.0 flattened chat options: spring.ai.openai.chat.options.*
+        # became spring.ai.openai.chat.*.
+        # Extractor model. Swap via env for Milestone 3 Experiment B,
+        # e.g. EXTRACTOR_MODEL=qwen2.5:7b with a local Ollama/OpenAI-compatible base-url.
+        model: ${EXTRACTOR_MODEL:glm-5.3-flash}
+        temperature: 0.0
     # Put prompt & completion content on the chat spans so Phoenix shows
     # what the extractor actually saw and answered.
     # NOTE for image mode (/extract-image): the model may transcribe card
@@ -25,8 +26,10 @@ spring:
     # deployments; the text path stays fully scrubbed either way.
     chat:
       observations:
-        include-prompt: true
-        include-completion: ${CHAT_COMPLETION_TELEMETRY:true}
+        # Renamed in Spring AI 2.0: include-prompt -> log-prompt,
+        # include-completion -> log-completion.
+        log-prompt: true
+        log-completion: ${CHAT_COMPLETION_TELEMETRY:true}
         include-error-logging: true
 
 # Milestone 3 Experiment A: set RECEIPT_EXTRACTION_TAX_HINT=false to drop the

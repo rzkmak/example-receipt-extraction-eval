@@ -13,12 +13,15 @@ import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.Task;
 import dev.dokimos.server.client.DokimosServerReporter;
 import dev.dokimos.springai.SpringAiSupport;
+import com.openai.client.OpenAIClient;
+import com.openai.client.OpenAIClientImpl;
+import com.openai.core.ClientOptions;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.ai.openai.http.okhttp.SpringAiOpenAiHttpClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -125,13 +128,19 @@ class ReceiptExperimentTest {
         String baseUrl = System.getenv("JUDGE_BASE_URL") != null
                 ? System.getenv("JUDGE_BASE_URL")
                 : System.getenv("OPENAI_BASE_URL");
-        OpenAiApi.Builder apiBuilder = OpenAiApi.builder().apiKey(apiKey);
+        // Spring AI 2.0 builds on the official OpenAI Java SDK. Wire the same
+        // stack the auto-configuration uses: ClientOptions + Spring AI's OkHttp
+        // bridge, instead of the removed OpenAiApi builder.
+        ClientOptions.Builder clientOptions = ClientOptions.builder()
+                .apiKey(apiKey)
+                .httpClient(SpringAiOpenAiHttpClient.builder().build());
         if (baseUrl != null && !baseUrl.isBlank()) {
-            apiBuilder.baseUrl(baseUrl);
+            clientOptions.baseUrl(baseUrl);
         }
+        OpenAIClient api = new OpenAIClientImpl(clientOptions.build());
         ChatModel judgeModel = OpenAiChatModel.builder()
-                .openAiApi(apiBuilder.build())
-                .defaultOptions(OpenAiChatOptions.builder()
+                .openAiClient(api)
+                .options(OpenAiChatOptions.builder()
                         .model(model)
                         .temperature(0.0)
                         .build())

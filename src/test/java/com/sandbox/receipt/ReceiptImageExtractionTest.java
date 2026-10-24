@@ -91,7 +91,7 @@ class ReceiptImageExtractionTest {
         }
 
         @Override
-        public ChatOptions getDefaultOptions() {
+        public ChatOptions getOptions() {
             return ChatOptions.builder().build();
         }
     }

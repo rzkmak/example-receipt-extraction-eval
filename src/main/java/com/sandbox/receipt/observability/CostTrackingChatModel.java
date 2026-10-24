@@ -36,7 +36,7 @@ public final class CostTrackingChatModel implements ChatModel {
     }
 
     @Override
-    public org.springframework.ai.chat.prompt.ChatOptions getDefaultOptions() {
-        return delegate.getDefaultOptions();
+    public org.springframework.ai.chat.prompt.ChatOptions getOptions() {
+        return delegate.getOptions();
     }
 }

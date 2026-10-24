@@ -1,6 +1,6 @@
 plugins {
     java
-    id("org.springframework.boot") version "3.4.13"
+    id("org.springframework.boot") version "4.1.2"
 }
 
 group = "com.sandbox"
@@ -8,38 +8,45 @@ version = "0.1.0-SNAPSHOT"
 description = "Bilingual receipt extractor with Dokimos LLM-as-a-Judge evaluation and Phoenix OTel observability"
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
 repositories {
     mavenCentral()
 }
 
-val springAiVersion = "1.1.8"
+val springAiVersion = "2.0.2"
 val dokimosVersion = "0.30.0"
 
 dependencies {
     // Native BOM support (no io.spring.dependency-management plugin needed):
     // Boot's BOM manages Spring/OTel/Micrometer versions, Spring AI's BOM the rest.
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:3.4.13"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
     implementation(platform("org.springframework.ai:spring-ai-bom:$springAiVersion"))
 
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    // Boot 4 renamed the servlet web starter (modularization): web -> webmvc.
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
-    // Tracing: micrometer observations -> OpenTelemetry spans -> OTLP gRPC to Phoenix
-    implementation("io.micrometer:micrometer-tracing-bridge-otel")
-    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+    // Tracing: micrometer observations -> OpenTelemetry spans -> OTLP gRPC to
+    // Phoenix. Boot 4 moved the OTel auto-configuration (the OpenTelemetry SDK
+    // bean, OTLP export) into this starter; the bridge and exporter come with it.
+    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 
     // Layer 4 (three pillars): Prometheus scrape endpoint for the aggregate
     // SLIs (cost counters, duration percentiles, invariant violations), and
-    // JSON-structured logs with MDC correlation.
+    // JSON-structured logs with MDC correlation. 9.0 = Jackson 3 (Boot 4's JSON).
     implementation("io.micrometer:micrometer-registry-prometheus")
-    implementation("net.logstash.logback:logstash-logback-encoder:8.1")
+    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // Boot 4 modularization: TestRestTemplate moved into spring-boot-resttestclient
+    // and is only auto-configured with @AutoConfigureTestRestTemplate.
+    testImplementation("org.springframework.boot:spring-boot-restclient")
+    testImplementation("org.springframework.boot:spring-boot-resttestclient")
 
     // In-memory span exporter so offline tests can assert span attributes.
     testImplementation("io.opentelemetry:opentelemetry-sdk-testing")

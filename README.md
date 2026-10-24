@@ -4,7 +4,7 @@
 
 Self-contained, zero-database sandbox for mastering **LLM-as-a-Judge** (via [Dokimos](https://dokimos.dev/)) and **LLM observability** (OpenTelemetry GenAI conventions + [Arize Phoenix](https://phoenix.arize.com/)) on a bilingual (JP/EN) receipt-extraction task.
 
-- **Extractor**: Spring Boot 3.4 + Spring AI (`glm-5.3-flash` by default) turns messy Japanese receipt text into normalized JSON: merchant, ISO date, English line-item translations, expense category, and the 8%/10% consumption-tax split.
+- **Extractor**: Spring Boot 4.1 + Spring AI 2.0 (`glm-5.3-flash` by default) turns messy Japanese receipt text into normalized JSON: merchant, ISO date, English line-item translations, expense category, and the 8%/10% consumption-tax split.
 - **Judge**: Dokimos `LLMJudgeEvaluator`s score translation fidelity and category classification; deterministic evaluators gate the tax math.
 - **Observability**: every extraction and judge call emits OTLP spans to Phoenix — open `http://localhost:6006` to inspect prompts, completions, token usage, and the custom `receipt.*` attributes.
 - **Results history**: runs report to the Dokimos server UI at `http://localhost:8080` when `DOKIMOS_SERVER_URL` is set.
@@ -182,6 +182,6 @@ All of it is configured under `receipt.observability.*` in `application.yml` (se
 ## Version notes (vs. original spec)
 
 - `dev.dokimos:dokimos-junit` **0.30.0** (spec said 0.15.0; 0.30.0 is current — JUnit integration is `@DatasetSource`/`Assertions.assertEval`).
-- Spring AI **1.1.8** with the renamed starter `spring-ai-starter-model-openai` (the old `spring-ai-openai-spring-boot-starter` name is pre-GA).
-- Spring Boot **3.4.13**; Java 21 (builds fine on newer JDKs via `--release 21`); **Gradle 9.8.2** (wrapper, Kotlin DSL, native BOM support).
+- Spring AI **2.0.2** with the starter `spring-ai-starter-model-openai`; the OpenAI module now builds on the official OpenAI Java SDK (`com.openai.client.OpenAIClient`), so manual judge models use `ClientOptions` + `OpenAIClientImpl`.
+- Spring Boot **4.1.2** (modular starters: `spring-boot-starter-webmvc`, `spring-boot-starter-opentelemetry`; Jackson 3 / `tools.jackson` throughout — the JSON exception names in `schema.error.type` keep their historic labels); Java 25 (LTS); **Gradle 9.8.2** (wrapper, Kotlin DSL, native BOM support).
 - Extractor app runs on **8081** so 8080 stays free for the Dokimos UI.

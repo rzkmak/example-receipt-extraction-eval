@@ -1,7 +1,7 @@
 package com.sandbox.receipt.observability;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.databind.exc.MismatchedInputException;
 import com.sandbox.receipt.domain.ReceiptData;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -146,7 +146,9 @@ public final class SchemaValidatedExtractor {
         }
         Throwable cause = error;
         while (cause != null) {
-            if (cause instanceof JsonParseException) {
+            // Telemetry labels keep the historic names (documented in the
+            // README); Jackson 3 renamed JsonParseException -> StreamReadException.
+            if (cause instanceof StreamReadException) {
                 return "JsonParseException";
             }
             if (cause instanceof MismatchedInputException) {

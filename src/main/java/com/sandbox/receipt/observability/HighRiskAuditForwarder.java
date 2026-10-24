@@ -1,6 +1,6 @@
 package com.sandbox.receipt.observability;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -31,7 +31,7 @@ public final class HighRiskAuditForwarder {
     private final boolean enabled;
     private final String url;
     private final String endpoint;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonMapper objectMapper = JsonMapper.builder().build();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "dokimos-high-risk-audit");
         thread.setDaemon(true);
