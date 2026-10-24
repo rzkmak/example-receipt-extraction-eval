@@ -42,6 +42,8 @@ curl -s localhost:8081/api/v1/receipts/extract-image \
 
 Watch traces at `http://localhost:6006` (Phoenix) and run history at `http://localhost:8080` (Dokimos).
 
+A [Bruno](https://www.usebruno.com/) collection lives in `bruno/` with both endpoints ready to fire — open that folder in Bruno, pick the `Local` environment, and set `receiptImagePath` to a real receipt photo for the image request.
+
 ## Evaluation pipeline (4 tiers, per `golden-receipts.json` case)
 
 | Evaluator | Type | Threshold |

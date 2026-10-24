@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "receipt-eval-sandbox",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

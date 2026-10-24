@@ -1,0 +1,37 @@
+meta {
+  name: Extract Receipt Text
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/receipts/extract
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rawInput": "セブン-イレブン 目黒駅東口店\n2026年10月24日 08:42\n※手巻おにぎり 熟成紅しゃけ ¥189\n※サントリー 伊右衛門 600ml ¥160\nレジ袋 ¥3\n合計 ¥352\n(内消費税等 8%対象 ¥25)\n(内消費税等 10%対象 ¥0)\nお預り ¥500\nお釣り ¥148",
+    "testcaseId": "{{testcaseId}}"
+  }
+}
+
+docs {
+  POST /api/v1/receipts/extract — text path.
+
+  rawInput is the receipt's plain text exactly as printed (or as OCR
+  produced it): newline-separated lines, Japanese, ¥ amounts, footer
+  noise like お預り/お釣り. Do not pre-clean or translate — the model
+  and the judges are graded on the mess.
+
+  PII (card numbers, 会員番号, TEL) may be included freely: the
+  guardrail.pii_redact span scrubs it before the model sees it.
+
+  Response carries X-Trace-Id / X-Span-Id headers — paste the trace id
+  into Phoenix (http://localhost:6006) to inspect the extraction.
+}

@@ -1,0 +1,36 @@
+meta {
+  name: Extract Receipt Image
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/receipts/extract-image
+  body: multipartForm
+  auth: none
+}
+
+body:multipartForm {
+  file: @{{receiptImagePath}}
+  testcaseId: {{imageTestcaseId}}
+}
+
+docs {
+  POST /api/v1/receipts/extract-image — vision path.
+
+  Sends a receipt photo as media to a vision-capable extractor model
+  (gpt-4o-mini is one) — no OCR pre-pass. PNG / JPEG / WebP, up to
+  10 MB.
+
+  Set receiptImagePath in the Local environment (or edit the body
+  below) to a real receipt image path relative to this collection.
+  A photo of the rcpt-001 konbini receipt works well.
+
+  Privacy: pixels cannot be regex-scrubbed — the model reads any card
+  numbers printed on the photo. The pipeline scrubs transcribed PII
+  before it reaches span attributes; set
+  CHAT_COMPLETION_TELEMETRY=false on the app for zero PII in
+  telemetry.
+
+  Response carries X-Trace-Id / X-Span-Id headers like the text path.
+}
