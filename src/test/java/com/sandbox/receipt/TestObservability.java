@@ -1,12 +1,17 @@
 package com.sandbox.receipt;
 
 import com.sandbox.receipt.observability.EvalSpanRegistry;
+import com.sandbox.receipt.observability.ExtractionChatClient;
 import com.sandbox.receipt.observability.ExperimentLineageSpanProcessor;
 import com.sandbox.receipt.observability.HighRiskAuditForwarder;
 import com.sandbox.receipt.observability.LLMCostRecorder;
 import com.sandbox.receipt.observability.ObservabilityProperties;
+import com.sandbox.receipt.observability.PiiGuardrail;
 import com.sandbox.receipt.observability.PiiScrubber;
+import com.sandbox.receipt.observability.PipelineObservation;
 import com.sandbox.receipt.observability.ReceiptInvariants;
+import com.sandbox.receipt.observability.SchemaValidatedExtractor;
+import com.sandbox.receipt.service.ExtractionPromptFactory;
 import com.sandbox.receipt.service.ReceiptExtractorService;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
@@ -41,15 +46,29 @@ final class TestObservability {
             .build();
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final PiiScrubber piiScrubber = new PiiScrubber(true);
+    final PiiGuardrail piiGuardrail = new PiiGuardrail(piiScrubber, otel);
     final LLMCostRecorder costRecorder = new LLMCostRecorder(properties, meters);
-    final ReceiptInvariants invariants = new ReceiptInvariants(meters, Clock.systemUTC());
+    final ReceiptInvariants invariants = new ReceiptInvariants(meters, Clock.systemUTC(), otel);
     final EvalSpanRegistry registry = new EvalSpanRegistry();
     final HighRiskAuditForwarder auditForwarder = HighRiskAuditForwarder.disabled();
+    final PipelineObservation.Factory observations =
+            new PipelineObservation.Factory(otel, meters, registry, auditForwarder, "gpt-4o-mini");
 
     ReceiptExtractorService serviceOver(ChatModel model, String extractorModel) {
-        return new ReceiptExtractorService(
-                ChatClient.builder(model), otel, meters, properties, piiScrubber,
-                costRecorder, invariants, registry, auditForwarder, true, extractorModel);
+        return service(model, extractorModel, true);
+    }
+
+    ReceiptExtractorService serviceOver(ChatModel model, boolean taxHint) {
+        return service(model, "gpt-4o-mini", taxHint);
+    }
+
+    private ReceiptExtractorService service(ChatModel model, String extractorModel, boolean taxHint) {
+        ExtractionChatClient chatClient =
+                new ExtractionChatClient(ChatClient.builder(model), costRecorder, extractorModel);
+        SchemaValidatedExtractor schemaExtractor =
+                new SchemaValidatedExtractor(chatClient, piiGuardrail, properties, otel);
+        return new ReceiptExtractorService(new ExtractionPromptFactory(taxHint),
+                observations, piiGuardrail, schemaExtractor, invariants);
     }
 
     void reset() {

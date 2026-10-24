@@ -1,6 +1,7 @@
 package com.sandbox.receipt;
 
 import com.sandbox.receipt.domain.ExpenseCategory;
+import com.sandbox.receipt.domain.ReceiptData;
 import com.sandbox.receipt.observability.PiiScrubber;
 import com.sandbox.receipt.service.ReceiptExtractorService;
 import io.opentelemetry.api.common.AttributeKey;
@@ -70,6 +71,14 @@ class ObservabilityPipelineTest {
     @BeforeEach
     void setUp() {
         obs = new TestObservability();
+    }
+
+    /** Runs one extraction through the fixture, closing the span on return. */
+    private static ReceiptData runExtraction(TestObservability obs, ScriptedChatModel stub) {
+        try (var result = obs.serviceOver(stub, "gpt-4o-mini")
+                .extractWithMetadata(PII_INPUT, "rcpt-001", "unit", false)) {
+            return result.data();
+        }
     }
 
     @AfterEach
@@ -147,7 +156,7 @@ class ObservabilityPipelineTest {
     @Test
     void masksCardMemberIdAndPhoneBeforeInference() {
         ScriptedChatModel stub = new ScriptedChatModel(GOOD_JSON);
-        obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001");
+        runExtraction(obs, stub);
 
         // The model must never see the raw PII.
         String seen = stub.lastUserText;
@@ -182,7 +191,7 @@ class ObservabilityPipelineTest {
         ScriptedChatModel stub = new ScriptedChatModel(
                 "```json\n{\"merchantNameOriginal\": broken\n```",
                 GOOD_JSON);
-        var data = obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001");
+        var data = runExtraction(obs, stub);
 
         assertEquals(352, data.totalAmount());
 
@@ -202,7 +211,7 @@ class ObservabilityPipelineTest {
                 "totally not json #2");
 
         var exception = assertThrows(RuntimeException.class, () ->
-                obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001"));
+                runExtraction(obs, stub));
         assertNotNull(exception);
 
         SpanData schemaSpan = spanByName("receipt.schema_validation");
@@ -220,7 +229,7 @@ class ObservabilityPipelineTest {
     @Test
     void recordsCostCacheAndRoleTelemetryFromUsage() {
         ScriptedChatModel stub = new ScriptedChatModel(GOOD_JSON).withUsage(340, 80, 210);
-        obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001");
+        runExtraction(obs, stub);
 
         SpanData pipeline = spanByName("receipt.pipeline");
         var inputKey = AttributeKey.longKey("gen_ai.usage.input_tokens");
@@ -303,7 +312,7 @@ class ObservabilityPipelineTest {
     @Test
     void lineageAttributesAreOnEveryExportedSpan() {
         ScriptedChatModel stub = new ScriptedChatModel(GOOD_JSON);
-        obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001");
+        runExtraction(obs, stub);
 
         List<SpanData> spans = obs.exporter.getFinishedSpanItems();
         assertTrue(spans.size() >= 3, "expected pipeline + guardrail + schema spans");
@@ -327,21 +336,19 @@ class ObservabilityPipelineTest {
         ScriptedChatModel stubWithHint = new ScriptedChatModel(GOOD_JSON);
         ScriptedChatModel stubNoHint = new ScriptedChatModel(GOOD_JSON);
 
-        new ReceiptExtractorService(
-                org.springframework.ai.chat.client.ChatClient.builder(stubWithHint),
-                obs.otel, obs.meters, obs.properties, obs.piiScrubber, obs.costRecorder,
-                obs.invariants, obs.registry, obs.auditForwarder, true, "gpt-4o-mini")
-                .extract(PII_INPUT, "rcpt-001");
+        try (var ignored = obs.serviceOver(stubWithHint, true)
+                .extractWithMetadata(PII_INPUT, "rcpt-001", "unit", false)) {
+            // hash captured below
+        }
 
         String withHint = spanByName("receipt.pipeline").getAttributes()
                 .get(AttributeKey.stringKey("prompt.template.sha256"));
         obs.exporter.reset();
 
-        new ReceiptExtractorService(
-                org.springframework.ai.chat.client.ChatClient.builder(stubNoHint),
-                obs.otel, obs.meters, obs.properties, obs.piiScrubber, obs.costRecorder,
-                obs.invariants, obs.registry, obs.auditForwarder, false, "gpt-4o-mini")
-                .extract(PII_INPUT, "rcpt-001");
+        try (var ignored = obs.serviceOver(stubNoHint, false)
+                .extractWithMetadata(PII_INPUT, "rcpt-001", "unit", false)) {
+            // hash captured below
+        }
 
         String withoutHint = spanByName("receipt.pipeline").getAttributes()
                 .get(AttributeKey.stringKey("prompt.template.sha256"));
@@ -367,7 +374,7 @@ class ObservabilityPipelineTest {
     @Test
     void goodExtractionSucceedsEndToEndWithAllAttributes() {
         ScriptedChatModel stub = new ScriptedChatModel(GOOD_JSON);
-        var data = obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001");
+        var data = runExtraction(obs, stub);
 
         assertEquals(ExpenseCategory.GROCERIES, data.expenseCategory());
         SpanData pipeline = spanByName("receipt.pipeline");
@@ -381,7 +388,7 @@ class ObservabilityPipelineTest {
     @Test
     void pipelineCarriesInputValueAndOutputValueForPhoenix() {
         ScriptedChatModel stub = new ScriptedChatModel(GOOD_JSON);
-        obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001");
+        runExtraction(obs, stub);
 
         SpanData pipeline = spanByName("receipt.pipeline");
         String input = pipeline.getAttributes().get(AttributeKey.stringKey("input.value"));
@@ -403,7 +410,7 @@ class ObservabilityPipelineTest {
     void failedExtractionRecordsErrorAsOutputValue() {
         ScriptedChatModel stub = new ScriptedChatModel("not json #1", "not json #2");
         assertThrows(RuntimeException.class, () ->
-                obs.serviceOver(stub, "gpt-4o-mini").extract(PII_INPUT, "rcpt-001"));
+                runExtraction(obs, stub));
 
         String output = spanByName("receipt.pipeline").getAttributes()
                 .get(AttributeKey.stringKey("output.value"));

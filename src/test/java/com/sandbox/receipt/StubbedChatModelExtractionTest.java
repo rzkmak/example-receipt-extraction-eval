@@ -4,7 +4,6 @@ import com.sandbox.receipt.domain.ExpenseCategory;
 import com.sandbox.receipt.domain.ReceiptData;
 import com.sandbox.receipt.service.ReceiptExtractorService;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -72,16 +71,17 @@ class StubbedChatModelExtractionTest {
     }
 
     private static ReceiptExtractorService serviceOver(RecordingStubChatModel stub, boolean taxHint) {
-        TestObservability obs = new TestObservability();
-        return new ReceiptExtractorService(
-                ChatClient.builder(stub), obs.otel, obs.meters, obs.properties, obs.piiScrubber,
-                obs.costRecorder, obs.invariants, obs.registry, obs.auditForwarder, taxHint, "gpt-4o-mini");
+        return new TestObservability().serviceOver(stub, taxHint);
     }
 
     @Test
     void extractsStructuredDataFromCannedCompletion() {
-        ReceiptData data = serviceOver(new RecordingStubChatModel(), true)
-                .extract("セブン-イレブン 目黒駅東口店\n合計 ¥352", "rcpt-001-konbini-mixed-tax");
+        TestObservability obs = new TestObservability();
+        ReceiptData data;
+        try (var result = obs.serviceOver(new RecordingStubChatModel(), true).extractWithMetadata(
+                "セブン-イレブン 目黒駅東口店\n合計 ¥352", "rcpt-001-konbini-mixed-tax", "unit", false)) {
+            data = result.data();
+        }
 
         assertEquals("7-Eleven Meguro Station East Exit", data.merchantNameNormalized());
         assertEquals(352, data.totalAmount());
@@ -97,7 +97,9 @@ class StubbedChatModelExtractionTest {
     @Test
     void systemPromptContainsTaxHintWhenEnabled() {
         RecordingStubChatModel stub = new RecordingStubChatModel();
-        serviceOver(stub, true).extract("x", "rcpt-001");
+        try (var ignored = serviceOver(stub, true).extractWithMetadata("x", "rcpt-001", "unit", false)) {
+            // assertions only need the prompt the stub recorded
+        }
         assertTrue(stub.lastSystemText.contains("※"), "hint mentions the ※ marker");
         assertTrue(stub.lastSystemText.contains("8%"), "hint mentions the reduced rate");
     }
@@ -105,7 +107,9 @@ class StubbedChatModelExtractionTest {
     @Test
     void taxHintCanBeDisabledForPromptRegressionExperiment() {
         RecordingStubChatModel stub = new RecordingStubChatModel();
-        serviceOver(stub, false).extract("x", "rcpt-001");
+        try (var ignored = serviceOver(stub, false).extractWithMetadata("x", "rcpt-001", "unit", false)) {
+            // assertions only need the prompt the stub recorded
+        }
         assertFalse(stub.lastSystemText.contains("※"), "hint must be gone when disabled");
         // but the base extraction rules stay
         assertTrue(stub.lastSystemText.contains("お釣り"));

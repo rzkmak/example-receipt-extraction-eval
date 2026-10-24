@@ -47,16 +47,18 @@ public final class ReceiptInvariants {
 
     private final MeterRegistry meters;
     private final Clock clock;
+    private final io.opentelemetry.api.trace.Tracer tracer;
 
-    public ReceiptInvariants(MeterRegistry meters, Clock clock) {
+    public ReceiptInvariants(MeterRegistry meters, Clock clock, io.opentelemetry.api.OpenTelemetry openTelemetry) {
         this.meters = meters;
         this.clock = clock;
+        this.tracer = openTelemetry.getTracer("com.sandbox.receipt");
     }
 
     /**
-     * Pure evaluation of all invariants + drift characteristics. Metric
-     * recording happens in {@link #recordViolations}, so callers can evaluate
-     * without touching the registry.
+     * Pure evaluation of all invariants + drift characteristics. Metric and
+     * span recording happen in {@link #evaluateAndObserve}, so callers can
+     * evaluate without touching telemetry.
      */
     public InvariantReport evaluate(ReceiptData data, String rawInput) {
         boolean sumOk = checkLineItemsSum(data);
@@ -75,6 +77,42 @@ public final class ReceiptInvariants {
                     .register(meters)
                     .increment();
         }
+    }
+
+    /**
+     * Layer 7 phase bean — evaluates the invariants and owns the
+     * {@code schema.validate_and_invariants} span, so the extraction service
+     * stays pure business flow. Drift attributes follow the modality (image
+     * byte size/media type instead of text length/CJK ratio), and a live
+     * extraction with a failed invariant is tagged
+     * {@code sampling.priority=HIGH_RISK} on this span (the caller tags the
+     * trace root separately — that decision is business flow).
+     */
+    public InvariantReport evaluateAndObserve(ReceiptData data, String rawTextInput,
+                                              byte[] image, String imageMediaType, boolean live) {
+        InvariantReport report = evaluate(data, image == null ? rawTextInput : "");
+        io.opentelemetry.api.trace.Span span =
+                tracer.spanBuilder("schema.validate_and_invariants").startSpan();
+        try {
+            span.setAttribute("invariant.line_items_sum_matches_subtotal", report.lineItemsSumMatchesSubtotal());
+            span.setAttribute("invariant.tax_bounds_valid", report.taxBoundsValid());
+            span.setAttribute("invariant.date_not_future", report.dateNotFuture());
+            if (image != null) {
+                span.setAttribute("input.image.bytes", image.length);
+                span.setAttribute("input.image.media_type",
+                        imageMediaType == null ? "unknown" : imageMediaType);
+            } else {
+                span.setAttribute("input.char_length", report.inputCharLength());
+                span.setAttribute("input.cjk_char_ratio", report.inputCjkCharRatio());
+            }
+            if (live && !report.allPassed()) {
+                span.setAttribute("sampling.priority", "HIGH_RISK");
+            }
+        } finally {
+            span.end();
+        }
+        recordViolations(report);
+        return report;
     }
 
     /**
