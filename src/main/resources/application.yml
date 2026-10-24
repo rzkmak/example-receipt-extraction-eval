@@ -19,10 +19,14 @@ spring:
           temperature: 0.0
     # Put prompt & completion content on the chat spans so Phoenix shows
     # what the extractor actually saw and answered.
+    # NOTE for image mode (/extract-image): the model may transcribe card
+    # numbers etc. from the photo, so completion capture can carry PII into
+    # telemetry. Set CHAT_COMPLETION_TELEMETRY=false for image-heavy
+    # deployments; the text path stays fully scrubbed either way.
     chat:
       observations:
         include-prompt: true
-        include-completion: true
+        include-completion: ${CHAT_COMPLETION_TELEMETRY:true}
         include-error-logging: true
 
 # Milestone 3 Experiment A: set RECEIPT_EXTRACTION_TAX_HINT=false to drop the

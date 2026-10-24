@@ -32,6 +32,12 @@ export DOKIMOS_SERVER_URL=http://localhost:8080   # optional: report runs to the
 curl -s localhost:8081/api/v1/receipts/extract \
   -H 'Content-Type: application/json' \
   -d '{"rawInput":"セブン-イレブン 目黒駅東口店\n※手巻おにぎり 熟成紅しゃけ ¥189\nレジ袋 ¥3\n合計 ¥352","testcaseId":"manual-1"}'
+
+# 7. Vision path: extract directly from a receipt photo (no OCR pre-pass).
+#    Requires a vision-capable extractor model (gpt-4o-mini is one).
+curl -s localhost:8081/api/v1/receipts/extract-image \
+  -F "file=@receipt.jpg;type=image/jpeg" \
+  -F "testcaseId=manual-img-1"
 ```
 
 Watch traces at `http://localhost:6006` (Phoenix) and run history at `http://localhost:8080` (Dokimos).
@@ -70,6 +76,15 @@ receipt.pipeline                          lineage, testcase_id, prompt.template.
 | 7 | Online drift & invariants | `ReceiptInvariants`, live mode only for HIGH_RISK | `invariant.line_items_sum_matches_subtotal`, `invariant.tax_bounds_valid` ([0%, 10.5%] of subtotal), `invariant.date_not_future`, drift `input.char_length`, `input.cjk_char_ratio`; failing live extractions get `sampling.priority=HIGH_RISK` and are forwarded for async judge auditing when `DOKIMOS_AUDIT_ENABLED=true` |
 
 All of it is configured under `receipt.observability.*` in `application.yml` (see the model pricing table there — judge `gpt-4o` tokens cost ~15x extractor `gpt-4o-mini` tokens, which is exactly why the cost metric carries a `role` tag). The offline test `ObservabilityPipelineTest` verifies layers 2, 3, 5, 6 and 7 against an in-memory span exporter — no API key, no Phoenix required.
+
+### Image input (vision path)
+
+`POST /api/v1/receipts/extract-image` accepts a multipart receipt photo (PNG/JPEG/WebP, ≤10 MB) and sends it as media to a vision-capable extractor model — no OCR pre-pass. The pipeline (schema retry, invariants, HIGH_RISK tagging, cost tracking, lineage) is identical to the text path; only two things differ:
+
+- **PII**: pixels can't be regex-scrubbed. The guardrail span records `guardrail.pii.input_scrubbed=false`, anything the model transcribed is scrubbed *before* it lands in a span attribute (e.g. the malformed-payload capture), and for zero PII in telemetry set `CHAT_COMPLETION_TELEMETRY=false` to disable completion capture.
+- **Drift**: `input.image.bytes` / `input.image.media_type` replace the text-based CJK-ratio characteristics.
+
+`ReceiptImageExtractionTest` verifies all of this offline with a capturing stub model.
 
 ## Experiments (Milestone 3)
 

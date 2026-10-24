@@ -21,8 +21,12 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.InvalidMimeTypeException;
+import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
@@ -139,6 +143,19 @@ public class ReceiptExtractorService {
     }
 
     /**
+     * One extraction's input: either raw receipt text or a receipt image for
+     * a vision-capable model (never both). Kept as a package record so the
+     * pipeline stays single-tracked — every layer below behaves identically
+     * for both modalities except where explicitly branched.
+     */
+    record ExtractionInput(String text, byte[] image, String imageMediaType) {
+
+        boolean isImage() {
+            return image != null;
+        }
+    }
+
+    /**
      * Full-pipeline extraction with trace metadata. The parent span stays
      * open until {@link ExtractionResult#close()} — close it immediately
      * (live API) or after evaluation (harness) so {@code dokimos.eval.*}
@@ -151,6 +168,34 @@ public class ReceiptExtractorService {
      */
     public ExtractionResult extractWithMetadata(String rawReceiptText, String testcaseId,
                                                 String difficulty, boolean live) {
+        return runPipeline(new ExtractionInput(rawReceiptText, null, null), testcaseId, difficulty, live);
+    }
+
+    /**
+     * Image-path extraction: the vision-capable extractor model reads the
+     * receipt photo directly (no OCR pre-pass). Same pipeline as the text
+     * path, with two deliberate differences:
+     *
+     * <ul>
+     *   <li><b>Input cannot be PII-scrubbed</b> — a regex guardrail has no
+     *       purchase on pixels. The guardrail span therefore records
+     *       {@code guardrail.pii.input_scrubbed=false} and the mitigation
+     *       moves to the output side: anything the model transcribed that
+     *       would land in a span attribute (e.g. a malformed payload on the
+     *       failure path) is scrubbed first. Deployments that want zero PII
+     *       in telemetry should also disable completion capture
+     *       ({@code CHAT_COMPLETION_TELEMETRY=false}).</li>
+     *   <li><b>Drift characteristics differ</b> — image byte size and media
+     *       type replace char length / CJK ratio.</li>
+     * </ul>
+     */
+    public ExtractionResult extractImageWithMetadata(byte[] imageBytes, String mediaType, String testcaseId,
+                                                     String difficulty, boolean live) {
+        return runPipeline(new ExtractionInput(null, imageBytes, mediaType), testcaseId, difficulty, live);
+    }
+
+    private ExtractionResult runPipeline(ExtractionInput input, String testcaseId,
+                                         String difficulty, boolean live) {
         long startNanos = System.nanoTime();
         Span span = tracer.spanBuilder("receipt.pipeline").startSpan();
 
@@ -160,6 +205,7 @@ public class ReceiptExtractorService {
         String prompt = systemPrompt();
         span.setAttribute("prompt.template.sha256", sha256Prefix(prompt));
         span.setAttribute("receipt.input.live", live);
+        span.setAttribute("receipt.input.modality", input.isImage() ? "image" : "text");
 
         // Layer 4: structured-log correlation. traceId/spanId also reach MDC
         // automatically via micrometer's Slf4JEventListener; the testcase id
@@ -170,25 +216,45 @@ public class ReceiptExtractorService {
 
         try (var ignored = span.makeCurrent()) {
             // ── Layer 5: guardrail BEFORE any gen_ai.prompt attribute exists ──
-            PiiScrubber.Result pii = piiScrubber.scrub(rawReceiptText);
             Span guardrailSpan = tracer.spanBuilder("guardrail.pii_redact").startSpan();
-            guardrailSpan.setAttribute("guardrail.pii.detected", pii.detected());
-            guardrailSpan.setAttribute("guardrail.pii.redacted_count", pii.redactedCount());
-            guardrailSpan.setAttribute("guardrail.pii.entity_types", String.join(",", pii.entityTypes()));
+            String textForAudit;
+            ExtractionInput modelInput = input;
+            if (input.isImage()) {
+                // Pixels cannot be regex-scrubbed; see extractImageWithMetadata.
+                guardrailSpan.setAttribute("guardrail.pii.input_scrubbed", false);
+                guardrailSpan.setAttribute("guardrail.pii.mode", "IMAGE_OUTPUT_REDACTION");
+                textForAudit = "(image input, " + input.image().length + " bytes)";
+            } else {
+                PiiScrubber.Result pii = piiScrubber.scrub(input.text());
+                guardrailSpan.setAttribute("guardrail.pii.input_scrubbed", true);
+                guardrailSpan.setAttribute("guardrail.pii.detected", pii.detected());
+                guardrailSpan.setAttribute("guardrail.pii.redacted_count", pii.redactedCount());
+                guardrailSpan.setAttribute("guardrail.pii.entity_types", String.join(",", pii.entityTypes()));
+                textForAudit = pii.scrubbedText();
+                // Only the scrubbed text may reach the model — drift stats
+                // below still measure the raw input.
+                modelInput = new ExtractionInput(pii.scrubbedText(), null, null);
+            }
             guardrailSpan.end();
 
             // ── Layers 2+3: chat call + schema deserialization with retry ──
-            CallOutcome outcome = callAndParse(span, prompt, pii.scrubbedText());
+            CallOutcome outcome = callAndParse(span, prompt, modelInput);
             ReceiptData data = outcome.data();
 
             // ── Layer 7: reference-free invariants + drift ──
-            ReceiptInvariants.InvariantReport report = invariants.evaluate(data, rawReceiptText);
+            ReceiptInvariants.InvariantReport report = invariants.evaluate(data, input.isImage() ? "" : input.text());
             Span invariantSpan = tracer.spanBuilder("schema.validate_and_invariants").startSpan();
             invariantSpan.setAttribute("invariant.line_items_sum_matches_subtotal", report.lineItemsSumMatchesSubtotal());
             invariantSpan.setAttribute("invariant.tax_bounds_valid", report.taxBoundsValid());
             invariantSpan.setAttribute("invariant.date_not_future", report.dateNotFuture());
-            invariantSpan.setAttribute("input.char_length", report.inputCharLength());
-            invariantSpan.setAttribute("input.cjk_char_ratio", report.inputCjkCharRatio());
+            if (input.isImage()) {
+                invariantSpan.setAttribute("input.image.bytes", input.image().length);
+                invariantSpan.setAttribute("input.image.media_type",
+                        input.imageMediaType() == null ? "unknown" : input.imageMediaType());
+            } else {
+                invariantSpan.setAttribute("input.char_length", report.inputCharLength());
+                invariantSpan.setAttribute("input.cjk_char_ratio", report.inputCjkCharRatio());
+            }
             if (live && !report.allPassed()) {
                 // Tag both the invariant span and the pipeline root: the root
                 // is what gets filtered in the Phoenix UI.
@@ -196,7 +262,7 @@ public class ReceiptExtractorService {
                 span.setAttribute("sampling.priority", "HIGH_RISK");
                 auditForwarder.forwardHighRisk(
                         testcaseId == null || testcaseId.isBlank() ? "live-" + span.getSpanContext().getSpanId() : testcaseId,
-                        pii.scrubbedText(), data, report.violations());
+                        textForAudit, data, report.violations());
             }
             invariantSpan.end();
             invariants.recordViolations(report);
@@ -235,12 +301,13 @@ public class ReceiptExtractorService {
      * {@code receipt.schema_validation} span, layer-2 usage/cost attributes
      * on the parent pipeline span.
      */
-    private CallOutcome callAndParse(Span parentSpan, String systemPrompt, String scrubbedInput) {
+    private CallOutcome callAndParse(Span parentSpan, String systemPrompt, ExtractionInput input) {
         BeanOutputConverter<ReceiptData> converter = new BeanOutputConverter<>(ReceiptData.class);
         String format = converter.getFormat();
 
         Span schemaSpan = tracer.spanBuilder("receipt.schema_validation").startSpan();
         schemaSpan.setAttribute("schema.target_class", ReceiptData.class.getName());
+        schemaSpan.setAttribute("schema.input.modality", input.isImage() ? "image" : "text");
         int maxAttempts = properties.getSchemaMaxAttempts();
         String lastRawOutput = null;
         String lastErrorType = null;
@@ -249,13 +316,26 @@ public class ReceiptExtractorService {
         try {
             for (int attempt = 1; attempt <= maxAttempts; attempt++) {
                 schemaSpan.setAttribute("schema.retry.attempt_count", attempt - 1);
-                String userText = buildUserText(scrubbedInput, format, attempt, lastRawOutput, lastErrorType);
+                String userText = buildUserText(
+                        input.isImage() ? IMAGE_INSTRUCTION : input.text(),
+                        format, attempt, lastRawOutput, lastErrorType);
 
-                ChatResponse response = chatClient.prompt()
-                        .system(systemPrompt)
-                        .user(userText)
-                        .call()
-                        .chatResponse();
+                ChatResponse response;
+                if (input.isImage()) {
+                    response = chatClient.prompt()
+                            .system(systemPrompt)
+                            .user(u -> u.text(userText)
+                                    .media(toMimeType(input.imageMediaType()),
+                                            new ByteArrayResource(input.image())))
+                            .call()
+                            .chatResponse();
+                } else {
+                    response = chatClient.prompt()
+                            .system(systemPrompt)
+                            .user(userText)
+                            .call()
+                            .chatResponse();
+                }
                 String rawOutput = response == null || response.getResult() == null
                         ? null
                         : response.getResult().getOutput().getText();
@@ -280,9 +360,15 @@ public class ReceiptExtractorService {
                     if (attempt == maxAttempts) {
                         schemaSpan.setAttribute("schema.validation.success", false);
                         schemaSpan.setAttribute("schema.error.type", lastErrorType);
-                        schemaSpan.setAttribute("schema.raw_malformed_payload",
-                                truncate(rawOutput == null ? "null" : rawOutput,
-                                        properties.getMalformedPayloadAttributeLimit()));
+                        // On the image path the model may have transcribed
+                        // card numbers / member ids from the photo — scrub
+                        // before the payload lands in a span attribute.
+                        String payload = truncate(rawOutput == null ? "null" : rawOutput,
+                                properties.getMalformedPayloadAttributeLimit());
+                        if (input.isImage()) {
+                            payload = piiScrubber.scrub(payload).scrubbedText();
+                        }
+                        schemaSpan.setAttribute("schema.raw_malformed_payload", payload);
                         throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                                 "LLM output did not deserialize to ReceiptData after "
                                         + maxAttempts + " attempt(s): " + lastErrorType, parseError);
@@ -294,6 +380,22 @@ public class ReceiptExtractorService {
             throw new IllegalStateException("unreachable");
         } finally {
             schemaSpan.end();
+        }
+    }
+
+    /** Text part of the vision user message; the image rides alongside it as media. */
+    private static final String IMAGE_INSTRUCTION = """
+            Extract the receipt data from the attached receipt image.
+            Read the printed Japanese text directly from the image.""";
+
+    private static MimeType toMimeType(String mediaType) {
+        if (mediaType == null || mediaType.isBlank()) {
+            return MimeTypeUtils.IMAGE_PNG;
+        }
+        try {
+            return MimeType.valueOf(mediaType);
+        } catch (InvalidMimeTypeException e) {
+            return MimeTypeUtils.IMAGE_PNG;
         }
     }
 
