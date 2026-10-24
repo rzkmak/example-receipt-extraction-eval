@@ -1,5 +1,7 @@
 # receipt-eval-sandbox
 
+> **Why this project exists:** this is a **learning sandbox**, not a production app. The goal is to learn — end to end and hands-on — how to orchestrate **observability and evaluation for LLM applications**: closed-loop tracing, LLM-as-a-Judge evaluation, cost telemetry, guardrails, and prompt-experiment lineage. The receipt extractor is deliberately tiny so that almost all of the code is about the observability/evaluation machinery, not the business logic — swap the domain and the patterns carry over to any LLM app.
+
 Self-contained, zero-database sandbox for mastering **LLM-as-a-Judge** (via [Dokimos](https://dokimos.dev/)) and **LLM observability** (OpenTelemetry GenAI conventions + [Arize Phoenix](https://phoenix.arize.com/)) on a bilingual (JP/EN) receipt-extraction task.
 
 - **Extractor**: Spring Boot 3.4 + Spring AI (`gpt-4o-mini` by default) turns messy Japanese receipt text into normalized JSON: merchant, ISO date, English line-item translations, expense category, and the 8%/10% consumption-tax split.
