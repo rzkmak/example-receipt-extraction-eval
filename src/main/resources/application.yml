@@ -15,7 +15,7 @@ spring:
         options:
           # Extractor model. Swap via env for Milestone 3 Experiment B,
           # e.g. EXTRACTOR_MODEL=qwen2.5:7b with a local Ollama/OpenAI-compatible base-url.
-          model: ${EXTRACTOR_MODEL:gpt-4o-mini}
+          model: ${EXTRACTOR_MODEL:glm-5.3-flash}
           temperature: 0.0
     # Put prompt & completion content on the chat spans so Phoenix shows
     # what the extractor actually saw and answered.
